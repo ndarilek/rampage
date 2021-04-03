@@ -193,13 +193,23 @@ Error message and password prompt
 
 <li>Create Web Audio Bevy plugin</li>
 
-<li>Determine how big rooms are, and how they are structured</li>
+<li>Determine robot types</li>
 
 <li>Determine size of player relative to robots</li>
 
 <li>Generate a maze</li>
 
 <li>Home</li>
+
+<li>Implement shooting at player</li>
+
+<li>Increment score when robots are killed, and apply penalties for any that remain</li>
+
+<li>Kill robots when they collide with anything</li>
+
+<li>Make robots pursue player within their assigned room</li>
+
+<li>Make robots taunt player</li>
 
 <li>Maze</li>
 
@@ -214,6 +224,8 @@ Error message and password prompt
 <li>Set up CI to publish to Itch</li>
 
 <li>Source Material</li>
+
+<li>Spawn robots</li>
 
 <li>Support firing bullets</li>
 
@@ -12289,8 +12301,8 @@ Error message and password prompt
 <div category="" created="20210317010151610" description="" modified="20210403145905155" project_title="" title="$:/state/projectify/new-project">
 <pre></pre>
 </div>
-<div created="20210317011152128" modified="20210403150404598" title="$:/state/projectify/new-todo">
-<pre>Surface wall collisions as events</pre>
+<div created="20210317011152128" modified="20210403155144845" title="$:/state/projectify/new-todo">
+<pre>Increment score when robots are killed, and apply penalties for any that remain</pre>
 </div>
 <div created="20210317010746245" modified="20210403145646150" title="$:/state/projectify/QuickCapture" todo_name="">
 <pre></pre>
@@ -12298,7 +12310,7 @@ Error message and password prompt
 <div title="$:/status/RequireReloadDueToPluginChange">
 <pre>no</pre>
 </div>
-<div created="20210403145603030" list="Home Maze" modified="20210403150300313" title="$:/StoryList">
+<div created="20210403145603030" list="Home Research Robots" modified="20210403155148229" title="$:/StoryList">
 <pre></pre>
 </div>
 <div bag="default" created="20201218161619312" list="$:/core/ui/PageTemplate/topleftbar $:/core/ui/PageTemplate/toprightbar [[Projectify Intro]] $:/core/ui/PageTemplate/story $:/core/ui/PageTemplate/alerts $:/core/ui/PageTemplate/drafts $:/core/ui/PageTemplate/pluginreloadwarning $:/themes/nico/notebook/ui/Bottombar $:/themes/nico/notebook/ui/Buttons/menu $:/themes/nico/notebook/ui/Sidebar $:/themes/nico/notebook/ui/Topbar" modified="20201219110914700" revision="0" title="$:/tags/PageTemplate" type="text/vnd.tiddlywiki">
@@ -12747,21 +12759,44 @@ Error message and password prompt
 <div created="20210403145637842" modified="20210403145637842" tags="Inbox todo" title="Create Web Audio Bevy plugin">
 <pre></pre>
 </div>
-<div created="20210317010822715" modified="20210317011328908" tags="todo Research" title="Determine how big rooms are, and how they are structured">
+<div created="20210403154824894" modified="20210403154917553" tags="Robots todo Research" title="Determine robot types">
 <pre></pre>
 </div>
-<div created="20210317011152127" modified="20210317011410384" tags="Research todo" title="Determine size of player relative to robots">
+<div created="20210317011152127" modified="20210403155320843" tags="Research todo" title="Determine size of player relative to robots">
 <pre></pre>
 </div>
 <div created="20210403150326949" modified="20210403150326950" tags="Maze todo" title="Generate a maze">
 <pre></pre>
 </div>
-<div created="20210317010026960" modified="20210403150046999" title="Home">
-<pre>''Rampage'' is an audio-only shooter in the spirit of Berzerk. The [[player|Player]] explores a [[maze|Maze]], fighting [[robots|Robots]] in search of the exit.
+<div created="20210317010026960" modified="20210403154331821" title="Home">
+<pre>''Rampage'' is an audio-only shooter in the spirit of Berzerk. The [[player|Player]] explores a [[maze|Maze]], fighting [[robots|Robots]] in search of the exit. Collisions with walls and robots are fatal. Further, robots are not very smart, and can shoot or collide with each other. Initially web-only, other platforms will be considered if Web Audio proves insufficient.
+
+!!! Concessions
+
+The  original seems difficult to adapt for several reasons:
+
+* While the mazes are simple, they seem more oriented toward providing cover and obstacles. Indicating cover seems complicated for a short-scale project, so mazes will be room-based instead.
+* Motion seems fast. In addition to constraining speed by using rooms rather than open space, players will traverse the map more slowly than they do in the original.
+* Dying seems way too easy. I may add a simple hit point system with regeneration, or a warning indicator when a robot accurately targets the player.
 
 Here is some [[source material|Source Material]] for my research.
 
 {{$:/plugins/nico/projectify/ui/dashboard/Dashboard}}</pre>
+</div>
+<div created="20210403155040907" modified="20210403155040907" tags="Robots todo" title="Implement shooting at player">
+<pre></pre>
+</div>
+<div created="20210403155144845" modified="20210403155222191" tags="Robots todo Research" title="Increment score when robots are killed, and apply penalties for any that remain">
+<pre></pre>
+</div>
+<div created="20210403155101398" modified="20210403155101399" tags="Robots todo" title="Kill robots when they collide with anything">
+<pre></pre>
+</div>
+<div created="20210403155017844" modified="20210403155017844" tags="Robots todo" title="Make robots pursue player within their assigned room">
+<pre></pre>
+</div>
+<div created="20210403155024508" modified="20210403155024508" tags="Robots todo" title="Make robots taunt player">
+<pre></pre>
 </div>
 <div category="" created="20210403145829954" description="" modified="20210403145829954" tags="Project" title="Maze">
 <pre></pre>
@@ -12783,6 +12818,9 @@ Here is some [[source material|Source Material]] for my research.
 </div>
 <div created="20210317010535005" modified="20210317010703008" title="Source Material">
 <pre>* [[Wikipedia|https://en.wikipedia.org/wiki/Berzerk_(video_game)]]</pre>
+</div>
+<div created="20210403154945820" modified="20210403154945820" tags="Robots todo" title="Spawn robots">
+<pre></pre>
 </div>
 <div created="20210403150213603" modified="20210403150213603" tags="Player todo" title="Support firing bullets">
 <pre></pre>
