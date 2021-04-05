@@ -1,0 +1,21 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "cargo",
+			"command": "make run",
+			"isBackground": true,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"label": "Watch",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"presentation": {
+				"reveal": "never"
+			}
+		}
+	]
+}
