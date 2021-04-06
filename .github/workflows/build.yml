@@ -21,6 +21,11 @@ jobs:
           components: rustfmt, clippy
       - uses: actions-rs/install@v0.1
         with:
+          crate: wasm-bindgen-cli
+          version: 0.2.69
+          use-tool-cache: true
+      - uses: actions-rs/install@v0.1
+        with:
           crate: cargo-make
           use-tool-cache: true
       - uses: actions-rs/cargo@v1
