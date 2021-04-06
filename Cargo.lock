@@ -2150,6 +2150,7 @@ dependencies = [
  "bevy_input_actionmap",
  "bevy_tts",
  "bevy_webgl2",
+ "wasm-bindgen",
 ]
 
 [[package]]
