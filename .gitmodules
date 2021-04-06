@@ -1,3 +1,6 @@
 [submodule "crates/bevy_tts"]
 	path = crates/bevy_tts
 	url = https://github.com/lightsoutgames/bevy_tts
+[submodule "crates/bevy_input_actionmap"]
+	path = crates/bevy_input_actionmap
+	url = https://github.com/lightsoutgames/bevy_input_actionmap

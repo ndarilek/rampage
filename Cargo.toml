@@ -8,7 +8,11 @@ resolver = "2"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+bevy_input_actionmap = { path = "crates/bevy_input_actionmap" }
 bevy_tts = { path = "crates/bevy_tts" }
+
+[target.wasm32-unknown-unknown.dependencies]
+bevy_webgl2 = { git = "https://github.com/mrk-its/bevy_webgl2", branch = "dev" }
 
 [target.wasm32-unknown-unknown.dependencies.bevy]
 git = "https://github.com/bevyengine/bevy"
