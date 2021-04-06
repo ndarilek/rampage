@@ -8,6 +8,8 @@ resolver = "2"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1"
+backtrace = "0.3"
 bevy_input_actionmap = { path = "crates/bevy_input_actionmap" }
 bevy_tts = { path = "crates/bevy_tts" }
 
