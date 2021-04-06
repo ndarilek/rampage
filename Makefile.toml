@@ -10,9 +10,9 @@ install_crate = { crate_name = "wasm-bindgen-cli", version = "0.2.69", binary = 
 [tasks.build]
 dependencies = ["install-trunk", "install-wasm-bindgen-cli"]
 command = "trunk"
-args = ["build", "@@split(CARGO_RELEASE_ARGS)"]
+args = ["build", "@@split(CARGO_RELEASE_ARGS, )"]
 
 [tasks.run]
 dependencies = ["install-trunk", "install-wasm-bindgen-cli"]
 command = "trunk"
-args = ["serve"]
+args = ["serve", "@@split(CARGO_RELEASE_ARGS, )"]
