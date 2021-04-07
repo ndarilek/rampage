@@ -12,9 +12,21 @@ anyhow = "1"
 backtrace = "0.3"
 bevy_input_actionmap = { path = "crates/bevy_input_actionmap" }
 bevy_tts = { path = "crates/bevy_tts" }
+claxon = "0.4"
+hound = "3"
+lewton = "0.10"
 
 [target.wasm32-unknown-unknown.dependencies]
 bevy_webgl2 = { git = "https://github.com/mrk-its/bevy_webgl2", branch = "dev" }
+js-sys = "0.3"
+web-sys = { version = "0.3", features = [
+    "AudioBuffer",
+    "AudioContext",
+    "AudioListener",
+    "AudioParam",
+    "BaseAudioContext",
+    "PannerNode",
+] }
 wasm-bindgen = "0.2.69"
 
 [target.wasm32-unknown-unknown.dependencies.bevy]
