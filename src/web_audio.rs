@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use bevy::{
     asset::{AssetLoader, BoxedFuture, HandleId, LoadContext, LoadedAsset},
@@ -36,13 +36,13 @@ impl AssetLoader for BufferAssetLoader {
 }
 
 #[derive(Clone, Debug, Default)]
-struct Buffers(HashMap<HandleId, AudioBuffer>);
+struct Buffers(Rc<RefCell<HashMap<HandleId, AudioBuffer>>>);
 
 fn buffer_creation(
     context: NonSend<AudioContext>,
     mut events: EventReader<AssetEvent<Buffer>>,
     assets: Res<Assets<Buffer>>,
-    mut buffers: NonSendMut<Buffers>,
+    buffers: NonSend<Buffers>,
 ) {
     for event in events.iter() {
         match event {
@@ -51,9 +51,11 @@ fn buffer_creation(
                     let bytes = buffer.0.as_bytes();
                     let array: Uint8Array = bytes.into();
                     let array_buffer = array.buffer();
+                    let handle_id = handle.id;
+                    let buffers = buffers.0.clone();
                     let callback = Closure::wrap(Box::new(move |v: JsValue| {
                         let b: AudioBuffer = v.dyn_into().unwrap();
-                        // buffers.0.insert(handle.id, b);
+                        buffers.borrow_mut().insert(handle_id, b);
                     }) as Box<dyn FnMut(_)>);
                     context
                         .decode_audio_data(&array_buffer)
@@ -63,7 +65,7 @@ fn buffer_creation(
             }
             AssetEvent::Modified { handle: _ } => {}
             AssetEvent::Removed { handle } => {
-                buffers.0.remove(&handle.id);
+                buffers.0.borrow_mut().remove(&handle.id);
             }
         }
     }
