@@ -12,6 +12,7 @@ anyhow = "1"
 backtrace = "0.3"
 bevy = "0.5"
 bevy_input_actionmap = { path = "crates/bevy_input_actionmap" }
+bevy_openal = { path = "crates/bevy_openal" }
 bevy_tts = { path = "crates/bevy_tts" }
 
 [profile.dev.package."*"]
