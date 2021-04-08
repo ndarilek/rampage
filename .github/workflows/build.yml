@@ -7,23 +7,25 @@ on:
 jobs:
   build:
     name: Build
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
         with:
           submodules: true
       - uses: Swatinem/rust-cache@v1
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y libspeechd-dev pkg-config libx11-dev libasound2-dev libudev-dev
+        if: ${{ runner.os == 'Linux' }}
       - uses: actions-rs/toolchain@v1
         with:
-          target: wasm32-unknown-unknown
           profile: minimal
           toolchain: stable
           components: rustfmt, clippy
-      - uses: actions-rs/install@v0.1
-        with:
-          crate: wasm-bindgen-cli
-          version: 0.2.69
-          use-tool-cache: true
+          override: true
       - uses: actions-rs/install@v0.1
         with:
           crate: cargo-make
@@ -38,12 +40,5 @@ jobs:
           args: --all-features
       - uses: actions-rs/cargo@v1
         with:
-          command: make
-          args: build -p release
-      - uses: josephbmanley/butler-publish-itchio-action@master
-        env:
-          BUTLER_CREDENTIALS: ${{ secrets.BUTLER_CREDENTIALS }}
-          CHANNEL: html
-          ITCH_GAME: rampage
-          ITCH_USER: thewordnerd
-          PACKAGE: dist
+          command: build
+          args: --release

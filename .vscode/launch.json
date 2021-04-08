@@ -5,12 +5,45 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "type": "pwa-chrome",
+            "type": "lldb",
             "request": "launch",
-            "name": "Launch Chrome against localhost",
-            "url": "http://localhost:8080",
-            "webRoot": "${workspaceFolder}",
-            "preLaunchTask": "Watch"
+            "name": "Debug executable 'rampage'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=rampage",
+                    "--package=rampage"
+                ],
+                "filter": {
+                    "name": "rampage",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'rampage'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=rampage",
+                    "--package=rampage"
+                ],
+                "filter": {
+                    "name": "rampage",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+            "env": {
+                "CARGO_MANIFEST_DIR": "${workspaceFolder}"
+            },
+            "terminal": "console"
         }
     ]
 }

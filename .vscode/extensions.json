@@ -1,6 +1,5 @@
 {
     "recommendations": [
-        "msjsdiag.debugger-for-chrome",
         "matklad.rust-analyzer"
     ]
 }
