@@ -14,6 +14,8 @@ bevy = "0.5"
 bevy_input_actionmap = { path = "crates/bevy_input_actionmap" }
 bevy_openal = { path = "crates/bevy_openal" }
 bevy_tts = { path = "crates/bevy_tts" }
+derive_more = "0.99"
+mapgen = "0.4"
 
 [profile.dev.package."*"]
 opt-level = 3
