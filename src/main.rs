@@ -4,8 +4,14 @@ use bevy::prelude::*;
 use bevy_input_actionmap::InputMap;
 use bevy_tts::Tts;
 
+#[macro_use]
 mod core;
 mod error;
+mod log;
+mod map;
+mod navigation;
+mod pathfinding;
+mod visibility;
 
 use crate::error::error_handler;
 
@@ -27,6 +33,11 @@ fn main() {
         .add_plugin(bevy_openal::OpenAlPlugin)
         .add_plugin(bevy_tts::TtsPlugin)
         .add_plugin(crate::core::CorePlugin)
+        .add_plugin(crate::log::LogPlugin)
+        .add_plugin(crate::map::MapPlugin)
+        .add_plugin(crate::navigation::NavigationPlugin)
+        .add_plugin(crate::pathfinding::PathfindingPlugin)
+        .add_plugin(crate::visibility::VisibilityPlugin)
         .add_system(bevy::input::system::exit_on_esc_system.system())
         .add_startup_system(setup.system())
         .add_system(greet.system().chain(error_handler.system()))
