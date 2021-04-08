@@ -4,3 +4,6 @@
 [submodule "crates/bevy_input_actionmap"]
 	path = crates/bevy_input_actionmap
 	url = https://github.com/lightsoutgames/bevy_input_actionmap
+[submodule "crates/bevy_openal"]
+	path = crates/bevy_openal
+	url = https://github.com/lightsoutgames/bevy_openal
