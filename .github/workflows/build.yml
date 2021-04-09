@@ -45,11 +45,7 @@ jobs:
         with:
           command: make
           args: release -p release
-      - uses: josephbmanley/butler-publish-itchio-action@master
-        env:
-          BUTLER_CREDENTIALS: ${{ secrets.BUTLER_CREDENTIALS }}
-          CHANNEL: windows-x86-64bit
-          ITCH_GAME: rampage
-          ITCH_USER: thewordnerd
-          PACKAGE: dist/*.zip
-        if: ${{ runner.os == 'Windows' }}
+      - uses: actions/upload-artifact@v1
+        with:
+          name: ${{ runner.os }}
+          path: dist/*.zip
