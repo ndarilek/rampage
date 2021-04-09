@@ -2,8 +2,12 @@
 #![allow(clippy::type_complexity)]
 use std::error::Error;
 
-use bevy::prelude::*;
+use bevy::{
+    asset::{HandleId, LoadState},
+    prelude::*,
+};
 use bevy_input_actionmap::{GamepadAxisDirection, InputMap};
+use bevy_openal::Listener;
 use bevy_tts::Tts;
 
 #[macro_use]
@@ -20,6 +24,7 @@ use crate::{
     core::{Angle, Coordinates, Player, PointLike, Yaw},
     error::error_handler,
     navigation::{MaxSpeed, RotationSpeed, Speed, Velocity},
+    sound::{Footstep, FootstepBundle},
 };
 
 #[bevy_main]
@@ -46,20 +51,55 @@ fn main() {
         .add_plugin(pathfinding::PathfindingPlugin)
         .add_plugin(sound::SoundPlugin)
         .add_plugin(visibility::VisibilityPlugin)
+        .add_state(AppState::Loading)
+        .init_resource::<AssetHandles>()
+        .init_resource::<Sfx>()
         .add_system(bevy::input::system::exit_on_esc_system.system())
-        .add_startup_system(setup.system())
-        .add_startup_system(spawn_player.system())
+        .add_startup_system(setup.system().chain(error_handler.system()))
+        .add_system_set(
+            SystemSet::on_update(AppState::Loading)
+                .with_system(load.system().chain(error_handler.system())),
+        )
+        .add_system_set(SystemSet::on_enter(AppState::InGame).with_system(spawn_player.system()))
         .add_system(speak_info.system().chain(error_handler.system()))
         .run();
+}
+
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+enum AppState {
+    Loading,
+    InGame,
+    GameOver,
+}
+
+// This asset-handling/loading code needs some cleanup.
+#[derive(Clone, Debug, Default)]
+struct AssetHandles {
+    sfx: Vec<HandleUntyped>,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct Sfx {
+    player_footstep: HandleId,
+}
+
+impl Default for Sfx {
+    fn default() -> Self {
+        Self {
+            player_footstep: "sfx/player_footstep.flac".into(),
+        }
+    }
 }
 
 #[derive(Bundle)]
 struct PlayerBundle {
     player: Player,
+    listener: Listener,
     coordinates: Coordinates,
     yaw: Yaw,
     rotation_speed: RotationSpeed,
     transform: Transform,
+    global_transform: GlobalTransform,
     speed: Speed,
     max_speed: MaxSpeed,
     velocity: Velocity,
@@ -69,10 +109,12 @@ impl Default for PlayerBundle {
     fn default() -> Self {
         Self {
             player: Default::default(),
+            listener: Default::default(),
             coordinates: Default::default(),
             yaw: Default::default(),
             rotation_speed: RotationSpeed(Angle::Degrees(45.)),
             transform: Default::default(),
+            global_transform: Default::default(),
             speed: Default::default(),
             max_speed: MaxSpeed(12.),
             velocity: Default::default(),
@@ -83,7 +125,12 @@ impl Default for PlayerBundle {
 const SPEAK_COORDINATES: &str = "SPEAK_COORDINATES";
 const SPEAK_HEADING: &str = "SPEAK_HEADING";
 
-fn setup(mut input: ResMut<InputMap<String>>) {
+fn setup(
+    asset_server: Res<AssetServer>,
+    mut handles: ResMut<AssetHandles>,
+    mut input: ResMut<InputMap<String>>,
+) -> Result<(), Box<dyn Error>> {
+    handles.sfx = asset_server.load_folder("sfx")?;
     input
         .bind(navigation::ACTION_FORWARD, KeyCode::Up)
         .bind_with_deadzone(
@@ -137,12 +184,40 @@ fn setup(mut input: ResMut<InputMap<String>>) {
         )
         .bind(SPEAK_COORDINATES, KeyCode::C)
         .bind(SPEAK_HEADING, KeyCode::H);
+    Ok(())
 }
 
-fn spawn_player(mut commands: Commands) {
-    commands.spawn().insert_bundle(PlayerBundle {
-        ..Default::default()
-    });
+// Ugh, and the asset-loading madness continues...
+fn load(
+    mut state: ResMut<State<AppState>>,
+    asset_server: Res<AssetServer>,
+    handles: ResMut<AssetHandles>,
+    buffers: Res<bevy_openal::Buffers>,
+) -> Result<(), Box<dyn Error>> {
+    let buffers_created = buffers.0.keys().len();
+    let sfx_loaded = asset_server.get_group_load_state(handles.sfx.iter().map(|handle| handle.id))
+        == LoadState::Loaded;
+    if sfx_loaded && buffers_created == handles.sfx.len() {
+        state.overwrite_replace(AppState::InGame)?;
+    }
+    Ok(())
+}
+
+fn spawn_player(mut commands: Commands, sfx: Res<Sfx>) {
+    commands
+        .spawn()
+        .insert_bundle(PlayerBundle {
+            ..Default::default()
+        })
+        .with_children(|parent| {
+            parent.spawn().insert_bundle(FootstepBundle {
+                footstep: Footstep {
+                    sound: sfx.player_footstep,
+                    ..Default::default()
+                },
+                ..Default::default()
+            });
+        });
 }
 
 fn speak_info(
