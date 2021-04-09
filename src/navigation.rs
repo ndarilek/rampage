@@ -147,9 +147,7 @@ fn movement_controls(
             commands.entity(entity).remove::<Destination>();
             if let Some(yaw) = yaw_clone {
                 let yaw = Mat3::from_rotation_z(yaw.radians());
-                println!("Rotating {:?} by {:?}", direction, yaw);
                 direction = yaw.transform_vector2(direction);
-                println!("{:?}", direction);
             }
             **velocity = direction;
         } else if destination.is_none() {
