@@ -1,8 +1,18 @@
+[env]
+CARGO_MANIFEST_DIR = "${CARGO_MAKE_WORKING_DIRECTORY}"
+
 [env.release]
 CARGO_RELEASE_ARGS = "--release"
 
+[tasks.test]
+disabled = true
+
 [tasks.build]
 args = ["build",  "@@split(CARGO_RELEASE_ARGS, )"]
+
+[tasks.trace]
+command = "cargo"
+args = ["run", "--features", "trace,trace_chrome", "@@split(CARGO_RELEASE_ARGS, )"]
 
 [tasks.release]
 dependencies = ["build", "release-pre", "release-post", "release-package"]
@@ -13,6 +23,7 @@ script = '''
 dist_artifact = set ${CARGO_MAKE_PROJECT_NAME}-${CARGO_MAKE_RUST_TARGET_OS}-${CARGO_MAKE_RUST_TARGET_ARCH}
 dist_dir = set dist/${dist_artifact}
 mkdir ${dist_dir}
+cp assets ${dist_dir}
 set_env dist_dir ${dist_dir}
 set_env dist_artifact ${dist_artifact}
 '''
