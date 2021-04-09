@@ -1,3 +1,5 @@
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::type_complexity)]
 use std::error::Error;
 
 use bevy::prelude::*;
@@ -14,9 +16,9 @@ mod pathfinding;
 mod visibility;
 
 use crate::{
-    core::{Coordinates, Player, PointLike},
+    core::{Angle, Coordinates, Player, PointLike, Yaw},
     error::error_handler,
-    navigation::{MaxSpeed, Speed, Velocity},
+    navigation::{MaxSpeed, RotationSpeed, Speed, Velocity},
 };
 
 #[bevy_main]
@@ -53,6 +55,8 @@ fn main() {
 struct PlayerBundle {
     player: Player,
     coordinates: Coordinates,
+    yaw: Yaw,
+    rotation_speed: RotationSpeed,
     transform: Transform,
     speed: Speed,
     max_speed: MaxSpeed,
@@ -64,6 +68,8 @@ impl Default for PlayerBundle {
         Self {
             player: Default::default(),
             coordinates: Default::default(),
+            yaw: Default::default(),
+            rotation_speed: RotationSpeed(Angle::Degrees(45.)),
             transform: Default::default(),
             speed: Default::default(),
             max_speed: MaxSpeed(12.),
@@ -73,6 +79,7 @@ impl Default for PlayerBundle {
 }
 
 const SPEAK_COORDINATES: &str = "SPEAK_COORDINATES";
+const SPEAK_HEADING: &str = "SPEAK_HEADING";
 
 fn setup(mut input: ResMut<InputMap<String>>) {
     input
@@ -88,19 +95,46 @@ fn setup(mut input: ResMut<InputMap<String>>) {
             GamepadAxisDirection::LeftStickYNegative,
             0.5,
         )
-        .bind(navigation::ACTION_LEFT, KeyCode::Left)
+        .bind(
+            navigation::ACTION_LEFT,
+            vec![KeyCode::LShift, KeyCode::Left],
+        )
+        .bind(
+            navigation::ACTION_LEFT,
+            vec![KeyCode::RShift, KeyCode::Left],
+        )
         .bind_with_deadzone(
             navigation::ACTION_LEFT,
             GamepadAxisDirection::LeftStickXNegative,
             0.5,
         )
-        .bind(navigation::ACTION_RIGHT, KeyCode::Right)
+        .bind(
+            navigation::ACTION_RIGHT,
+            vec![KeyCode::LShift, KeyCode::Right],
+        )
+        .bind(
+            navigation::ACTION_RIGHT,
+            vec![KeyCode::RShift, KeyCode::Right],
+        )
         .bind_with_deadzone(
             navigation::ACTION_RIGHT,
             GamepadAxisDirection::LeftStickXPositive,
             0.5,
         )
-        .bind(SPEAK_COORDINATES, KeyCode::C);
+        .bind(navigation::ACTION_ROTATE_LEFT, KeyCode::Left)
+        .bind_with_deadzone(
+            navigation::ACTION_ROTATE_LEFT,
+            GamepadAxisDirection::RightStickXNegative,
+            0.5,
+        )
+        .bind(navigation::ACTION_ROTATE_RIGHT, KeyCode::Right)
+        .bind_with_deadzone(
+            navigation::ACTION_ROTATE_RIGHT,
+            GamepadAxisDirection::RightStickXPositive,
+            0.5,
+        )
+        .bind(SPEAK_COORDINATES, KeyCode::C)
+        .bind(SPEAK_HEADING, KeyCode::H);
 }
 
 fn spawn_player(mut commands: Commands) {
@@ -110,14 +144,19 @@ fn spawn_player(mut commands: Commands) {
 fn speak_info(
     input: Res<InputMap<String>>,
     mut tts: ResMut<Tts>,
-    player: Query<(&Player, &Coordinates)>,
+    player: Query<(&Player, &Coordinates, &Yaw)>,
 ) -> Result<(), Box<dyn Error>> {
-    for (_, coordinates) in player.iter() {
-        if input.just_active(SPEAK_COORDINATES) {
+    if input.just_active(SPEAK_COORDINATES) {
+        if let Ok((_, coordinates, _)) = player.single() {
             tts.speak(
                 format!("({}, {})", coordinates.x_i32(), coordinates.y_i32()),
                 true,
             )?;
+        }
+    }
+    if input.just_active(SPEAK_HEADING) {
+        if let Ok((_, _, yaw)) = player.single() {
+            tts.speak(format!("{} degrees", yaw.degrees_u32()), true)?;
         }
     }
     Ok(())

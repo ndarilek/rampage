@@ -120,6 +120,8 @@ impl From<Angle> for MovementDirection {
     }
 }
 
+// Converting from strings into directions doesn't make sense.
+#[allow(clippy::from_over_into)]
 impl Into<String> for MovementDirection {
     fn into(self) -> String {
         use MovementDirection::*;
@@ -255,9 +257,9 @@ macro_rules! impl_pointlike_for_tuple_component {
 
 impl_pointlike_for_tuple_component!(Coordinates);
 
-impl Into<(i32, i32)> for &dyn PointLike {
-    fn into(self) -> (i32, i32) {
-        (self.x_i32(), self.y_i32())
+impl From<&dyn PointLike> for (i32, i32) {
+    fn from(val: &dyn PointLike) -> Self {
+        (val.x_i32(), val.y_i32())
     }
 }
 

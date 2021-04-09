@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
 use bevy::prelude::*;
-use bevy_input_actionmap::{GamepadAxisDirection, InputMap};
+use bevy_input_actionmap::InputMap;
 use derive_more::{Deref, DerefMut};
 
 use crate::{
-    core::{Coordinates, PointLike},
+    core::{Angle, Coordinates, PointLike, Yaw},
     map::{ITileType, Map},
     pathfinding::Destination,
 };
@@ -36,6 +36,16 @@ pub struct MonitorsCollisions;
 #[reflect(Component)]
 pub struct MotionBlocked(pub Vec<bool>);
 
+#[derive(Clone, Copy, Debug, Deref, DerefMut, Reflect)]
+#[reflect(Component)]
+pub struct RotationSpeed(pub Angle);
+
+impl Default for RotationSpeed {
+    fn default() -> Self {
+        Self(Angle::Radians(0.))
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, Deref, DerefMut, Reflect)]
 #[reflect(Component)]
 pub struct Speed(pub f32);
@@ -59,20 +69,27 @@ pub const ACTION_FORWARD: &str = "forward";
 pub const ACTION_BACKWARD: &str = "backward";
 pub const ACTION_LEFT: &str = "left";
 pub const ACTION_RIGHT: &str = "right";
+pub const ACTION_ROTATE_LEFT: &str = "ROTATE_LEFT";
+pub const ACTION_ROTATE_RIGHT: &str = "ROTATE_RIGHT";
 pub const ACTION_SPRINT: &str = "SPRINT";
 
 fn movement_controls(
     mut commands: Commands,
     input: Res<InputMap<String>>,
+    time: Res<Time>,
     mut query: Query<(
         Entity,
         &mut Velocity,
         &mut Speed,
         &MaxSpeed,
+        Option<&mut Yaw>,
+        Option<&RotationSpeed>,
         Option<&Destination>,
     )>,
 ) {
-    for (entity, mut velocity, mut speed, max_speed, destination) in query.iter_mut() {
+    for (entity, mut velocity, mut speed, max_speed, yaw, rotation_speed, destination) in
+        query.iter_mut()
+    {
         let sprinting = input.active(ACTION_SPRINT);
         if sprinting {
             commands.entity(entity).insert(Sprinting::default());
@@ -91,6 +108,18 @@ fn movement_controls(
         }
         if input.active(ACTION_RIGHT) {
             direction.x += 1.;
+        }
+        let mut yaw_clone: Option<Angle> = None;
+        if let (Some(mut yaw), Some(rotation_speed)) = (yaw, rotation_speed) {
+            yaw_clone = Some(**yaw);
+            let radians = yaw.radians();
+            let delta_radians = rotation_speed.radians() * time.delta_seconds();
+            if input.active(ACTION_ROTATE_LEFT) {
+                **yaw = Angle::Radians(radians + delta_radians);
+            }
+            if input.active(ACTION_ROTATE_RIGHT) {
+                **yaw = Angle::Radians(radians - delta_radians);
+            }
         }
         if direction.length_squared() != 0. {
             direction = direction.normalize();
@@ -114,6 +143,10 @@ fn movement_controls(
             direction *= s;
             direction *= strength;
             commands.entity(entity).remove::<Destination>();
+            if let Some(yaw) = yaw_clone {
+                let yaw = Mat3::from_rotation_z(yaw.radians());
+                direction = yaw.transform_vector2(direction);
+            }
             **velocity = direction;
         } else if destination.is_none() {
             **velocity = Vec2::ZERO;
@@ -284,6 +317,7 @@ pub struct NavigationPlugin;
 impl Plugin for NavigationPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.register_type::<MaxSpeed>()
+            .register_type::<RotationSpeed>()
             .register_type::<Sprinting>()
             .add_event::<Collision>()
             .add_system(movement_controls.system().before(MOVEMENT_LABEL))
