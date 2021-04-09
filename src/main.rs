@@ -13,6 +13,7 @@ mod log;
 mod map;
 mod navigation;
 mod pathfinding;
+mod sound;
 mod visibility;
 
 use crate::{
@@ -43,6 +44,7 @@ fn main() {
         .add_plugin(map::MapPlugin)
         .add_plugin(navigation::NavigationPlugin)
         .add_plugin(pathfinding::PathfindingPlugin)
+        .add_plugin(sound::SoundPlugin)
         .add_plugin(visibility::VisibilityPlugin)
         .add_system(bevy::input::system::exit_on_esc_system.system())
         .add_startup_system(setup.system())
