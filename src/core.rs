@@ -21,6 +21,47 @@ impl Area {
     }
 }
 
+#[derive(Clone, Copy, Debug, Reflect)]
+pub enum Angle {
+    Degrees(f32),
+    Radians(f32),
+}
+
+impl Default for Angle {
+    fn default() -> Self {
+        Self::Radians(0.)
+    }
+}
+
+impl Angle {
+    pub fn degrees(&self) -> f32 {
+        use Angle::*;
+        let mut degrees: f32 = match self {
+            Degrees(v) => *v,
+            Radians(v) => v.to_degrees(),
+        };
+        while degrees < 0. {
+            degrees += 360.;
+        }
+        while degrees >= 360. {
+            degrees %= 360.;
+        }
+        degrees
+    }
+
+    pub fn degrees_u32(&self) -> u32 {
+        self.degrees() as u32
+    }
+
+    pub fn radians(&self) -> f32 {
+        use Angle::*;
+        match self {
+            Degrees(v) => v.to_radians(),
+            Radians(v) => *v,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub enum MovementDirection {
     North,
@@ -70,6 +111,12 @@ impl MovementDirection {
             h if h <= 349.0 => EastSoutheast,
             _ => East,
         }
+    }
+}
+
+impl From<Angle> for MovementDirection {
+    fn from(angle: Angle) -> Self {
+        MovementDirection::new(angle.degrees())
     }
 }
 
@@ -218,12 +265,23 @@ impl Into<(i32, i32)> for &dyn PointLike {
 #[reflect(Component)]
 pub struct Player;
 
+#[derive(Clone, Copy, Debug, Default, Deref, DerefMut, Reflect)]
+#[reflect(Component)]
+pub struct Yaw(Angle);
+
 fn copy_coordinates_to_transform(
-    mut query: Query<(&Coordinates, &mut Transform), Changed<Coordinates>>,
+    mut query: Query<
+        (&Coordinates, Option<&Yaw>, &mut Transform),
+        Or<(Changed<Coordinates>, Changed<Yaw>)>,
+    >,
 ) {
-    for (coordinates, mut transform) in query.iter_mut() {
+    for (coordinates, yaw, mut transform) in query.iter_mut() {
         transform.translation.x = coordinates.0 .0;
         transform.translation.y = coordinates.0 .1;
+        if let Some(yaw) = yaw {
+            let rotation = Quat::from_rotation_z(yaw.radians());
+            transform.rotate(rotation);
+        }
     }
 }
 
@@ -231,7 +289,9 @@ pub struct CorePlugin;
 
 impl Plugin for CorePlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_system(copy_coordinates_to_transform.system())
+        app.register_type::<Coordinates>()
+            .register_type::<Yaw>()
+            .add_system(copy_coordinates_to_transform.system())
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 copy_coordinates_to_transform
