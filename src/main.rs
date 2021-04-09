@@ -138,7 +138,9 @@ fn setup(mut input: ResMut<InputMap<String>>) {
 }
 
 fn spawn_player(mut commands: Commands) {
-    commands.spawn().insert_bundle(PlayerBundle::default());
+    commands.spawn().insert_bundle(PlayerBundle {
+        ..Default::default()
+    });
 }
 
 fn speak_info(

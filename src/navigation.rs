@@ -100,16 +100,16 @@ fn movement_controls(
         }
         let mut direction = Vec2::default();
         if input.active(ACTION_FORWARD) {
-            direction.y += 1.;
+            direction.x += 1.;
         }
         if input.active(ACTION_BACKWARD) {
-            direction.y -= 1.;
-        }
-        if input.active(ACTION_LEFT) {
             direction.x -= 1.;
         }
+        if input.active(ACTION_LEFT) {
+            direction.y += 1.;
+        }
         if input.active(ACTION_RIGHT) {
-            direction.x += 1.;
+            direction.y -= 1.;
         }
         let mut yaw_clone: Option<Angle> = None;
         if let (Some(mut yaw), Some(rotation_speed)) = (yaw, rotation_speed) {
@@ -125,16 +125,16 @@ fn movement_controls(
         }
         if direction.length_squared() != 0. {
             direction = direction.normalize();
-            let right_x = input.strength(ACTION_RIGHT).abs();
-            let left_x = input.strength(ACTION_LEFT).abs();
-            let x = if right_x > left_x { right_x } else { left_x };
-            let forward_y = input.strength(ACTION_FORWARD).abs();
-            let backward_y = input.strength(ACTION_BACKWARD).abs();
-            let y = if forward_y > backward_y {
-                forward_y
+            let forward_x = input.strength(ACTION_FORWARD).abs();
+            let backward_x = input.strength(ACTION_BACKWARD).abs();
+            let x = if forward_x > backward_x {
+                forward_x
             } else {
-                backward_y
+                backward_x
             };
+            let right_y = input.strength(ACTION_RIGHT).abs();
+            let left_y = input.strength(ACTION_LEFT).abs();
+            let y = if right_y > left_y { right_y } else { left_y };
             let strength = Vec2::new(x, y);
             let s = if sprinting {
                 **max_speed
@@ -147,7 +147,9 @@ fn movement_controls(
             commands.entity(entity).remove::<Destination>();
             if let Some(yaw) = yaw_clone {
                 let yaw = Mat3::from_rotation_z(yaw.radians());
+                println!("Rotating {:?} by {:?}", direction, yaw);
                 direction = yaw.transform_vector2(direction);
+                println!("{:?}", direction);
             }
             **velocity = direction;
         } else if destination.is_none() {
