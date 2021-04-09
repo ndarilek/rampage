@@ -75,7 +75,7 @@ jobs:
           ITCH_USER: thewordnerd
           ITCH_GAME: rampage
           CHANNEL: linux-x86_64
-          PACKAGE: rampage-linux-x86_64.zip
+          PACKAGE: linux/rampage-linux-x86_64.zip
       - uses: actions/download-artifact@v1
         with:
           name: macos
@@ -85,7 +85,7 @@ jobs:
           ITCH_USER: thewordnerd
           ITCH_GAME: rampage
           CHANNEL: macos-x86_64
-          PACKAGE: rampage.dmg
+          PACKAGE: macos/rampage.dmg
       - uses: actions/download-artifact@v1
         with:
           name: windows
@@ -95,4 +95,4 @@ jobs:
           ITCH_USER: thewordnerd
           ITCH_GAME: rampage
           CHANNEL: windows-x86_64
-          PACKAGE: rampage-windows-x86_64.zip
+          PACKAGE: windows/rampage-windows-x86_64.zip
