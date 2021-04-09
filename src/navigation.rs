@@ -1,11 +1,13 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, error::Error};
 
 use bevy::prelude::*;
 use bevy_input_actionmap::InputMap;
+use bevy_tts::Tts;
 use derive_more::{Deref, DerefMut};
 
 use crate::{
-    core::{Angle, Coordinates, PointLike, Yaw},
+    core::{Angle, Coordinates, MovementDirection, Player, PointLike, Yaw},
+    error::error_handler,
     map::{ITileType, Map},
     pathfinding::Destination,
 };
@@ -310,6 +312,27 @@ fn add_collision_indices(
     }
 }
 
+fn speak_direction(
+    mut tts: ResMut<Tts>,
+    mut cache: Local<HashMap<Entity, MovementDirection>>,
+    player: Query<(Entity, &Player, &Yaw), Changed<Yaw>>,
+) -> Result<(), Box<dyn Error>> {
+    if let Ok((entity, _, yaw)) = player.single() {
+        if let Some(old_direction) = cache.get(&entity) {
+            let old_direction = old_direction.clone();
+            let direction: MovementDirection = yaw.into();
+            if old_direction != direction {
+                let direction: String = direction.into();
+                tts.speak(direction, true)?;
+            }
+            cache.insert(entity, direction);
+        } else {
+            cache.insert(entity, yaw.into());
+        }
+    }
+    Ok(())
+}
+
 pub const MOVEMENT_LABEL: &str = "MOVEMENT";
 
 pub struct NavigationPlugin;
@@ -347,6 +370,7 @@ impl Plugin for NavigationPlugin {
                     .label(UPDATE_COLLISION_INDEX_LABEL),
             )
             .add_system(add_collision_indices.system())
+            .add_system(speak_direction.system().chain(error_handler.system()))
             .add_system_to_stage(CoreStage::PostUpdate, add_collision_indices.system());
     }
 }

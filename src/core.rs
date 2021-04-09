@@ -62,7 +62,7 @@ impl Angle {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MovementDirection {
     North,
     NorthNortheast,
@@ -117,6 +117,12 @@ impl MovementDirection {
 impl From<Angle> for MovementDirection {
     fn from(angle: Angle) -> Self {
         MovementDirection::new(angle.degrees())
+    }
+}
+
+impl From<&Yaw> for MovementDirection {
+    fn from(yaw: &Yaw) -> Self {
+        MovementDirection::from(yaw.0)
     }
 }
 
