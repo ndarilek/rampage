@@ -20,6 +20,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libspeechd-dev pkg-config libx11-dev libasound2-dev libudev-dev zip
         if: ${{ runner.os == 'Linux' }}
+      - run: |
+          choco install -y zip
+        if: ${{ runner.os == 'Windows' }}
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
