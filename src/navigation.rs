@@ -55,34 +55,11 @@ pub struct Collision {
     pub index: usize,
 }
 
-const ACTION_FORWARD: &str = "forward";
-const ACTION_BACKWARD: &str = "backward";
-const ACTION_LEFT: &str = "left";
-const ACTION_RIGHT: &str = "right";
-const ACTION_SPRINT: &str = "SPRINT";
-
-fn setup(mut input: ResMut<InputMap<String>>) {
-    input
-        .bind(ACTION_FORWARD, KeyCode::Up)
-        .bind_with_deadzone(
-            ACTION_FORWARD,
-            GamepadAxisDirection::LeftStickYPositive,
-            0.5,
-        )
-        .bind(ACTION_BACKWARD, KeyCode::Down)
-        .bind_with_deadzone(
-            ACTION_BACKWARD,
-            GamepadAxisDirection::LeftStickYNegative,
-            0.5,
-        )
-        .bind(ACTION_LEFT, KeyCode::Left)
-        .bind_with_deadzone(ACTION_LEFT, GamepadAxisDirection::LeftStickXNegative, 0.5)
-        .bind(ACTION_RIGHT, KeyCode::Right)
-        .bind_with_deadzone(ACTION_RIGHT, GamepadAxisDirection::LeftStickXPositive, 0.5)
-        .bind(ACTION_SPRINT, KeyCode::LShift)
-        .bind(ACTION_SPRINT, KeyCode::RShift)
-        .bind(ACTION_SPRINT, GamepadButtonType::LeftTrigger);
-}
+pub const ACTION_FORWARD: &str = "forward";
+pub const ACTION_BACKWARD: &str = "backward";
+pub const ACTION_LEFT: &str = "left";
+pub const ACTION_RIGHT: &str = "right";
+pub const ACTION_SPRINT: &str = "SPRINT";
 
 fn movement_controls(
     mut commands: Commands,
@@ -155,13 +132,13 @@ fn movement(
     map: Query<(&Map, &MotionBlocked, &CollisionsMonitored)>,
     mut entities: Query<(Entity, &Velocity, &mut Coordinates)>,
 ) {
-    for (map, motion_blocked, collisions_monitored) in map.iter() {
-        for (entity, velocity, mut coordinates) in entities.iter_mut() {
-            if **velocity != Vec2::ZERO {
-                let displacement = **velocity * time.delta_seconds();
-                let mut point = **coordinates;
-                point.0 += displacement.x;
-                point.1 += displacement.y;
+    for (entity, velocity, mut coordinates) in entities.iter_mut() {
+        if **velocity != Vec2::ZERO {
+            let displacement = **velocity * time.delta_seconds();
+            let mut point = **coordinates;
+            point.0 += displacement.x;
+            point.1 += displacement.y;
+            if let Ok((map, motion_blocked, collisions_monitored)) = map.single() {
                 let idx = point.to_index(map.width());
                 if idx < map.base.tiles.len() {
                     let current_entities = &map.entities[idx];
@@ -183,6 +160,8 @@ fn movement(
                         }
                     }
                 }
+            } else {
+                **coordinates = point;
             }
         }
     }
@@ -307,7 +286,6 @@ impl Plugin for NavigationPlugin {
         app.register_type::<MaxSpeed>()
             .register_type::<Sprinting>()
             .add_event::<Collision>()
-            .add_startup_system(setup.system())
             .add_system(movement_controls.system().before(MOVEMENT_LABEL))
             .add_system(
                 movement
