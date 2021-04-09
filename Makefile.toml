@@ -30,9 +30,16 @@ set_env dist_artifact ${dist_artifact}
 
 [tasks.release-post]
 linux_alias = "release-post-linux"
+mac_alias = "release-post-mac"
 windows_alias = "release-post-windows"
 
 [tasks.release-post-linux]
+script_runner = "@duckscript"
+script = '''
+cp target/release/${CARGO_MAKE_PROJECT_NAME} ${dist_dir}/${CARGO_MAKE_PROJECT_NAME}
+'''
+
+[tasks.release-post-mac]
 script_runner = "@duckscript"
 script = '''
 cp target/release/${CARGO_MAKE_PROJECT_NAME} ${dist_dir}/${CARGO_MAKE_PROJECT_NAME}
@@ -61,6 +68,30 @@ end
 '''
 
 [tasks.release-package]
+linux_alias = "release-package-linux"
+mac_alias = "release-package-mac"
+windows_alias = "release-package-windows"
+
+[tasks.release-package-linux]
+script_runner = "@duckscript"
+script = '''
+cd dist/
+exec zip -r9 ${dist_artifact}.zip ${dist_artifact}
+'''
+
+[tasks.release-package-mac]
+script_runner = "@duckscript"
+script = '''
+app_dir = set ${CARGO_MAKE_PROJECT_NAME}.app
+macos_dir = set ${app_dir}/Contents/MacOS
+cd dist/
+mkdir ${macos_dir}
+cp ../${dist_dir}/${CARGO_MAKE_PROJECT_NAME} ${macos_dir}/${CARGO_MAKE_PROJECT_NAME}
+cp ../${dist_dir}/assets ${macos_dir}/
+exec hdiutil create -fs HFS+ -volname "${CARGO_MAKE_PROJECT_NAME}" -srcfolder ${CARGO_MAKE_PROJECT_NAME}.app ${CARGO_MAKE_PROJECT_NAME}.dmg
+'''
+
+[tasks.release-package-windows]
 script_runner = "@duckscript"
 script = '''
 cd dist/
