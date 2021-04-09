@@ -47,11 +47,11 @@ jobs:
           args: release -p release
       - uses: actions/upload-artifact@v1
         with:
-          name: ${{ runner.os }}
-          path: dist/*.zip
+          name: ${{ matrix.os }}
+          path: dist/rampage-${{ matrix.os }}-x86_64.zip
         if: ${{ runner.os != 'macOS' }}
       - uses: actions/upload-artifact@v1
         with:
-          name: ${{ runner.os }}
-          path: dist/*.dmg
+          name: ${{ matrix.os }}
+          path: dist/rampage.dmg
         if: ${{ runner.os == 'macOS' }}
