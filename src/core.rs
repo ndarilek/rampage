@@ -277,6 +277,12 @@ pub struct Player;
 #[reflect(Component)]
 pub struct Yaw(Angle);
 
+impl From<Angle> for Yaw {
+    fn from(a: Angle) -> Self {
+        Self(a)
+    }
+}
+
 fn copy_coordinates_to_transform(
     mut query: Query<
         (&Coordinates, Option<&Yaw>, &mut Transform),
