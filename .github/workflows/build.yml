@@ -49,3 +49,9 @@ jobs:
         with:
           name: ${{ runner.os }}
           path: dist/*.zip
+        if: ${{ runner.os != 'macOS' }}
+      - uses: actions/upload-artifact@v1
+        with:
+          name: ${{ runner.os }}
+          path: dist/*.dmg
+        if: ${{ runner.os == 'macOS' }}
