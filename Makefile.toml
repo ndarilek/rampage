@@ -1,18 +1,57 @@
 [env.release]
 CARGO_RELEASE_ARGS = "--release"
 
-[tasks.install-trunk]
-install_crate = { crate_name = "trunk", binary = "trunk", test_arg = "--help" }
-
-[tasks.install-wasm-bindgen-cli]
-install_crate = { crate_name = "wasm-bindgen-cli", version = "=0.2.69", binary = "wasm-bindgen", test_arg = "--help" }
-
 [tasks.build]
-dependencies = ["install-trunk", "install-wasm-bindgen-cli"]
-command = "trunk"
-args = ["build", "--public-url", "''", "@@split(CARGO_RELEASE_ARGS, )"]
+args = ["build",  "@@split(CARGO_RELEASE_ARGS, )"]
 
-[tasks.run]
-dependencies = ["install-trunk", "install-wasm-bindgen-cli"]
-command = "trunk"
-args = ["serve", "@@split(CARGO_RELEASE_ARGS, )"]
+[tasks.release]
+dependencies = ["build", "release-pre", "release-post", "release-package"]
+
+[tasks.release-pre]
+script_runner = "@duckscript"
+script = '''
+dist_artifact = set ${CARGO_MAKE_PROJECT_NAME}-${CARGO_MAKE_RUST_TARGET_OS}-${CARGO_MAKE_RUST_TARGET_ARCH}
+dist_dir = set dist/${dist_artifact}
+mkdir ${dist_dir}
+set_env dist_dir ${dist_dir}
+set_env dist_artifact ${dist_artifact}
+'''
+
+[tasks.release-post]
+linux_alias = "release-post-linux"
+windows_alias = "release-post-windows"
+
+[tasks.release-post-linux]
+script_runner = "@duckscript"
+script = '''
+cp target/release/${CARGO_MAKE_PROJECT_NAME} ${dist_dir}/${CARGO_MAKE_PROJECT_NAME}
+'''
+
+[tasks.release-post-windows]
+script_runner = "@duckscript"
+script = '''
+dlls = glob_array target/release/*.dll
+for path in ${dlls}
+    file = basename ${path}
+    cp ${path} ${dist_dir}/${file}
+end
+
+dlls = glob_array lib/win64/*.dll
+for path in ${dlls}
+    file = basename ${path}
+    cp ${path} ${dist_dir}/${file}
+end
+
+exes = glob_array target/release/*.exe
+for path in ${exes}
+    file = basename ${path}
+    cp ${path} ${dist_dir}/${file}
+end
+'''
+
+[tasks.release-package]
+script_runner = "@duckscript"
+script = '''
+cd dist/
+exec zip -r9 ${dist_artifact}.zip ${dist_artifact}
+'''
