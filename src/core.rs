@@ -281,7 +281,7 @@ pub struct Player;
 
 #[derive(Clone, Copy, Debug, Default, Deref, DerefMut, Reflect)]
 #[reflect(Component)]
-pub struct Yaw(Angle);
+pub struct Yaw(pub Angle);
 
 impl From<Angle> for Yaw {
     fn from(a: Angle) -> Self {

@@ -40,7 +40,7 @@ fn main() {
             ..Default::default()
         })
         .insert_resource(bevy::log::LogSettings {
-            level: bevy::log::Level::DEBUG,
+            level: bevy::log::Level::INFO,
             // filter: "bevy_ecs=trace".into(),
             ..Default::default()
         })

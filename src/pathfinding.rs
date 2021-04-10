@@ -6,9 +6,9 @@ use derive_more::{Deref, DerefMut};
 use pathfinding::prelude::*;
 
 use crate::{
-    core::{Coordinates, PointLike},
+    core::{Angle, Coordinates, PointLike, Yaw},
     map::Map,
-    navigation::{MotionBlocked, Speed, Velocity},
+    navigation::{MotionBlocked, RotationSpeed, Speed, Velocity},
 };
 
 #[derive(Clone, Copy, Debug, Default, Deref, DerefMut, Eq, Hash, PartialEq, Reflect)]
@@ -119,10 +119,20 @@ fn calculate_path(
 fn negotiate_path(
     mut commands: Commands,
     time: Res<Time>,
-    mut query: Query<(Entity, &mut Path, &mut Coordinates, &mut Velocity, &Speed)>,
+    mut query: Query<(
+        Entity,
+        &mut Path,
+        &mut Coordinates,
+        &mut Velocity,
+        &Speed,
+        Option<&RotationSpeed>,
+        Option<&mut Yaw>,
+    )>,
     map: Query<(&Map, &MotionBlocked)>,
 ) {
-    for (entity, mut path, mut coordinates, mut velocity, speed) in query.iter_mut() {
+    for (entity, mut path, mut coordinates, mut velocity, speed, rotation_speed, mut yaw) in
+        query.iter_mut()
+    {
         for (map, motion_blocked) in map.iter() {
             let mut new_path = path.0.clone();
             let start_i32 = (coordinates.x() as i32, coordinates.y() as i32);
@@ -148,6 +158,15 @@ fn negotiate_path(
                 let start = Vec2::new(start.0, start.1);
                 let next = path[1];
                 let next = Vec2::new(next.0 as f32, next.1 as f32);
+                if rotation_speed.is_some() {
+                    if let Some(ref mut yaw) = yaw {
+                        let start = start.floor();
+                        let v = next - start;
+                        let angle = v.y.atan2(v.x);
+                        let angle = Angle::Radians(angle);
+                        ***yaw = angle;
+                    }
+                }
                 let mut direction = next - start;
                 direction = direction.normalize();
                 direction *= speed.0;
