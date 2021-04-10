@@ -222,8 +222,8 @@ fn load(
 }
 
 fn spawn_map(mut commands: Commands) {
-    let map = MapBuilder::new(111, 111)
-        .with(crate::map::GridBuilder::new(10, 10, 10, 10))
+    let map = MapBuilder::new(137, 137)
+        .with(crate::map::GridBuilder::new(8, 8, 16, 16))
         .with(mapgen::filter::AreaStartingPosition::new(
             mapgen::XStart::LEFT,
             mapgen::YStart::TOP,
