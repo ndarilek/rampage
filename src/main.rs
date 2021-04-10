@@ -26,7 +26,7 @@ use crate::{
     core::{Angle, Coordinates, Player, PointLike, Yaw},
     error::error_handler,
     exploration::Mappable,
-    map::{Map, MapConfig},
+    map::{Exit, Map, MapConfig},
     navigation::{MaxSpeed, RotationSpeed, Speed, Velocity},
     sound::{Footstep, FootstepBundle},
     visibility::{BlocksVisibility, Viewshed},
@@ -75,6 +75,7 @@ fn main() {
                 .with_system(spawn_map.system())
                 .with_system(spawn_player.system()),
         )
+        .add_system(exit_post_processor.system())
         .add_system(position_player_at_start.system())
         .add_system(speak_info.system().chain(error_handler.system()))
         .run();
@@ -360,6 +361,12 @@ fn spawn_player(mut commands: Commands, sfx: Res<Sfx>) {
                 ..Default::default()
             });
         });
+}
+
+fn exit_post_processor(mut commands: Commands, exits: Query<(Entity, &Exit), Added<Exit>>) {
+    for (entity, _) in exits.iter() {
+        commands.entity(entity).insert(Name::new("Exit"));
+    }
 }
 
 fn position_player_at_start(
