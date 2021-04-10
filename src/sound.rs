@@ -29,13 +29,12 @@ impl Default for Footstep {
     }
 }
 
-#[derive(Clone, Debug, Reflect)]
-#[reflect(Component)]
+#[derive(Clone, Debug)]
 pub struct SoundIcon {
     pub sound: HandleId,
     pub gain: f32,
     pub pitch: f32,
-    pub interval: Timer,
+    pub interval: Option<Timer>,
 }
 
 impl Default for SoundIcon {
@@ -45,10 +44,12 @@ impl Default for SoundIcon {
             sound: "".into(),
             gain: 0.3,
             pitch: 1.,
-            interval: Timer::from_seconds(seconds, true),
+            interval: Some(Timer::from_seconds(seconds, true)),
         };
-        let seconds = Duration::from_secs_f32(seconds - 0.1);
-        icon.interval.set_elapsed(seconds);
+        if let Some(ref mut interval) = icon.interval {
+            let seconds = Duration::from_secs_f32(seconds - 0.1);
+            interval.set_elapsed(seconds);
+        }
         icon
     }
 }
@@ -138,7 +139,7 @@ fn sound_icon(
             if viewer.visible.contains(&(x, y)) {
                 let buffer = asset_server.get_handle(icon.sound);
                 if asset_server.get_load_state(&buffer) == LoadState::Loaded {
-                    let looping = icon.interval.duration() == Duration::from_secs_f32(0.);
+                    let looping = icon.interval.is_none();
                     let sound = Sound {
                         buffer,
                         gain: icon.gain,
@@ -155,25 +156,27 @@ fn sound_icon(
                             .id();
                         commands.entity(entity).push_children(&[child]);
                     } else {
-                        icon.interval.tick(time.delta());
-                        if icon.interval.finished() {
-                            if let Some(children) = children {
-                                for child in children.iter() {
-                                    commands.entity(*child).despawn();
+                        if let Some(ref mut interval) = icon.interval {
+                            interval.tick(time.delta());
+                            if interval.finished() {
+                                if let Some(children) = children {
+                                    for child in children.iter() {
+                                        commands.entity(*child).despawn();
+                                    }
                                 }
-                            }
-                            let child = commands
-                                .spawn()
-                                .insert(sound)
-                                .insert(Transform::default())
-                                .insert(GlobalTransform::default())
-                                .id();
-                            commands.entity(entity).push_children(&[child]);
-                            icon.interval.reset();
-                        } else if let Some(children) = children {
-                            if let Some(child) = children.get(0) {
-                                if let Ok(mut sound) = sounds.get_mut(*child) {
-                                    sound.gain = icon.gain;
+                                let child = commands
+                                    .spawn()
+                                    .insert(sound)
+                                    .insert(Transform::default())
+                                    .insert(GlobalTransform::default())
+                                    .id();
+                                commands.entity(entity).push_children(&[child]);
+                                interval.reset();
+                            } else if let Some(children) = children {
+                                if let Some(child) = children.get(0) {
+                                    if let Ok(mut sound) = sounds.get_mut(*child) {
+                                        sound.gain = icon.gain;
+                                    }
                                 }
                             }
                         }
@@ -216,7 +219,6 @@ impl Plugin for SoundPlugin {
                 CoreStage::PostUpdate,
                 footstep.system().after(TransformSystem::TransformPropagate),
             )
-            .register_type::<SoundIcon>()
             .add_system(sound_icon.system())
             .add_stage_after(
                 CoreStage::PostUpdate,

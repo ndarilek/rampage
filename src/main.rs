@@ -28,7 +28,7 @@ use crate::{
     exploration::Mappable,
     map::{Exit, Map, MapConfig},
     navigation::{MaxSpeed, RotationSpeed, Speed, Velocity},
-    sound::{Footstep, FootstepBundle},
+    sound::{Footstep, FootstepBundle, SoundIcon},
     visibility::{BlocksVisibility, Viewshed},
 };
 
@@ -96,12 +96,14 @@ struct AssetHandles {
 
 #[derive(Clone, Copy, Debug)]
 struct Sfx {
+    exit: HandleId,
     player_footstep: HandleId,
 }
 
 impl Default for Sfx {
     fn default() -> Self {
         Self {
+            exit: "sfx/exit.wav".into(),
             player_footstep: "sfx/player_footstep.flac".into(),
         }
     }
@@ -363,9 +365,19 @@ fn spawn_player(mut commands: Commands, sfx: Res<Sfx>) {
         });
 }
 
-fn exit_post_processor(mut commands: Commands, exits: Query<(Entity, &Exit), Added<Exit>>) {
+fn exit_post_processor(
+    mut commands: Commands,
+    sfx: Res<Sfx>,
+    exits: Query<(Entity, &Exit), Added<Exit>>,
+) {
     for (entity, _) in exits.iter() {
         commands.entity(entity).insert(Name::new("Exit"));
+        commands.entity(entity).insert(SoundIcon {
+            sound: sfx.exit,
+            gain: 0.5,
+            interval: None,
+            ..Default::default()
+        });
     }
 }
 
