@@ -25,6 +25,7 @@ mod visibility;
 use crate::{
     core::{Angle, Coordinates, Player, PointLike, Yaw},
     error::error_handler,
+    exploration::Mappable,
     map::{Map, MapConfig},
     navigation::{MaxSpeed, RotationSpeed, Speed, Velocity},
     sound::{Footstep, FootstepBundle},
@@ -112,6 +113,8 @@ struct PlayerBundle {
     speed: Speed,
     max_speed: MaxSpeed,
     velocity: Velocity,
+    name: Name,
+    mappable: Mappable,
 }
 
 impl Default for PlayerBundle {
@@ -127,6 +130,8 @@ impl Default for PlayerBundle {
             speed: Default::default(),
             max_speed: MaxSpeed(12.),
             velocity: Default::default(),
+            name: Name::new("You"),
+            mappable: Default::default(),
         }
     }
 }
