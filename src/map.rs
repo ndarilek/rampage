@@ -8,10 +8,16 @@ use rand::prelude::StdRng;
 
 use crate::{
     core::{Area, Coordinates, Player, PointLike},
+    exploration::{ExplorationType, Mappable},
     log::Log,
     navigation::MonitorsCollisions,
 };
 
+impl From<mapgen::geometry::Point> for Coordinates {
+    fn from(point: mapgen::geometry::Point) -> Self {
+        Self((point.x as f32, point.y as f32))
+    }
+}
 #[derive(Clone, Debug, Default, Deref, DerefMut)]
 pub struct Areas(pub Vec<Area>);
 
@@ -76,14 +82,16 @@ impl ITileType for TileType {
     }
 }
 
-struct MapConfig {
-    autospawn_exits: bool,
+pub struct MapConfig {
+    pub autospawn_exits: bool,
+    pub start_revealed: bool,
 }
 
 impl Default for MapConfig {
     fn default() -> Self {
         Self {
             autospawn_exits: true,
+            start_revealed: false,
         }
     }
 }
@@ -93,6 +101,8 @@ pub struct ExitBundle {
     pub coordinates: Coordinates,
     pub monitors_collisions: MonitorsCollisions,
     pub exit: Exit,
+    pub exploration_type: ExplorationType,
+    pub mappable: Mappable,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
 }
@@ -103,6 +113,8 @@ impl Default for ExitBundle {
             coordinates: Default::default(),
             monitors_collisions: Default::default(),
             exit: Default::default(),
+            exploration_type: ExplorationType::Exit,
+            mappable: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
         }

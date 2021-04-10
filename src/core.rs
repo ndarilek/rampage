@@ -7,6 +7,12 @@ use derive_more::{Deref, DerefMut};
 #[reflect(Component)]
 pub struct Coordinates(pub (f32, f32));
 
+impl From<(usize, usize)> for Coordinates {
+    fn from(v: (usize, usize)) -> Self {
+        Coordinates((v.0 as f32, v.1 as f32))
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Area {
     pub rect: mapgen::geometry::Rect,

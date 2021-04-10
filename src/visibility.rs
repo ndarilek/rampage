@@ -8,7 +8,7 @@ use shadowcast::{vision_distance, Context, InputGrid};
 use crate::{
     core::{Coordinates, Player, PointLike},
     log::Log,
-    map::{ITileType, Map},
+    map::{ITileType, Map, MapConfig},
 };
 
 #[derive(Clone, Copy, Debug, Default, Reflect)]
@@ -61,6 +61,7 @@ fn add_visibility_indices(
             Without<RevealedTiles>,
         ),
     >,
+    map_config: Res<MapConfig>,
 ) {
     for (entity, map) in query.iter() {
         let mut v = vec![];
@@ -74,7 +75,7 @@ fn add_visibility_indices(
             .insert(VisibleTiles(vec![false; count]));
         commands
             .entity(entity)
-            .insert(RevealedTiles(vec![false; count]));
+            .insert(RevealedTiles(vec![map_config.start_revealed; count]));
     }
 }
 

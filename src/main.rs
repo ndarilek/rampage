@@ -9,10 +9,12 @@ use bevy::{
 use bevy_input_actionmap::{GamepadAxisDirection, InputMap};
 use bevy_openal::Listener;
 use bevy_tts::Tts;
+use mapgen::MapBuilder;
 
 #[macro_use]
 mod core;
 mod error;
+mod exploration;
 mod log;
 mod map;
 mod navigation;
@@ -23,6 +25,7 @@ mod visibility;
 use crate::{
     core::{Angle, Coordinates, Player, PointLike, Yaw},
     error::error_handler,
+    map::{Map, MapConfig},
     navigation::{MaxSpeed, RotationSpeed, Speed, Velocity},
     sound::{Footstep, FootstepBundle},
 };
@@ -45,7 +48,12 @@ fn main() {
         .add_plugin(bevy_openal::OpenAlPlugin)
         .add_plugin(bevy_tts::TtsPlugin)
         .add_plugin(core::CorePlugin)
+        .add_plugin(exploration::ExplorationPlugin)
         .add_plugin(log::LogPlugin)
+        .insert_resource(MapConfig {
+            start_revealed: true,
+            ..Default::default()
+        })
         .add_plugin(map::MapPlugin)
         .add_plugin(navigation::NavigationPlugin)
         .add_plugin(pathfinding::PathfindingPlugin)
@@ -60,7 +68,8 @@ fn main() {
             SystemSet::on_update(AppState::Loading)
                 .with_system(load.system().chain(error_handler.system())),
         )
-        .add_system_set(SystemSet::on_enter(AppState::InGame).with_system(spawn_player.system()))
+        .add_system_set(SystemSet::on_enter(AppState::InGame).with_system(spawn_map.system()))
+        .add_system(spawn_player.system())
         .add_system(speak_info.system().chain(error_handler.system()))
         .run();
 }
@@ -203,21 +212,39 @@ fn load(
     Ok(())
 }
 
-fn spawn_player(mut commands: Commands, sfx: Res<Sfx>) {
-    commands
-        .spawn()
-        .insert_bundle(PlayerBundle {
-            ..Default::default()
-        })
-        .with_children(|parent| {
-            parent.spawn().insert_bundle(FootstepBundle {
-                footstep: Footstep {
-                    sound: sfx.player_footstep,
+fn spawn_map(mut commands: Commands) {
+    let map = MapBuilder::new(101, 101)
+        .with(crate::map::GridBuilder::new())
+        .with(mapgen::filter::AreaStartingPosition::new(
+            mapgen::XStart::LEFT,
+            mapgen::YStart::TOP,
+        ))
+        .with(mapgen::filter::DistantExit::new())
+        .build();
+    let map = Map::new(map);
+    commands.spawn().insert(map);
+}
+
+fn spawn_player(mut commands: Commands, sfx: Res<Sfx>, map: Query<&Map, Added<Map>>) {
+    if let Ok(map) = map.single() {
+        if let Some(start) = map.start() {
+            commands
+                .spawn()
+                .insert_bundle(PlayerBundle {
+                    coordinates: start.into(),
                     ..Default::default()
-                },
-                ..Default::default()
-            });
-        });
+                })
+                .with_children(|parent| {
+                    parent.spawn().insert_bundle(FootstepBundle {
+                        footstep: Footstep {
+                            sound: sfx.player_footstep,
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    });
+                });
+        }
+    }
 }
 
 fn speak_info(

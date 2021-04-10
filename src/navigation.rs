@@ -8,6 +8,7 @@ use derive_more::{Deref, DerefMut};
 use crate::{
     core::{Angle, Coordinates, MovementDirection, Player, PointLike, Yaw},
     error::error_handler,
+    exploration::{ExplorationFocused, Exploring},
     map::{ITileType, Map},
     pathfinding::Destination,
 };
@@ -88,6 +89,7 @@ fn movement_controls(
         Option<&RotationSpeed>,
         Option<&Destination>,
     )>,
+    exploration_focused: Query<(Entity, &ExplorationFocused)>,
 ) {
     for (entity, mut velocity, mut speed, max_speed, yaw, rotation_speed, destination) in
         query.iter_mut()
@@ -145,6 +147,10 @@ fn movement_controls(
             direction *= s;
             direction *= strength;
             commands.entity(entity).remove::<Destination>();
+            commands.entity(entity).remove::<Exploring>();
+            for (entity, _) in exploration_focused.iter() {
+                commands.entity(entity).remove::<ExplorationFocused>();
+            }
             if let Some(yaw) = yaw_clone {
                 let yaw = Mat3::from_rotation_z(yaw.radians());
                 direction = yaw.transform_vector2(direction);

@@ -9,7 +9,7 @@ use bevy_openal::{Buffer, Sound, SoundState};
 
 use rand::random;
 
-use crate::{core::Player, visibility::Viewshed};
+use crate::{core::Player, exploration::ExplorationFocused, visibility::Viewshed};
 
 #[derive(Clone, Debug, Reflect)]
 #[reflect(Component)]
@@ -184,17 +184,52 @@ fn sound_icon(
     }
 }
 
+fn sound_icon_exploration_focus_changed(
+    mut focused: Query<(&ExplorationFocused, Option<&mut SoundIcon>), Changed<ExplorationFocused>>,
+) {
+    for (_, icon) in focused.iter_mut() {
+        if let Some(mut icon) = icon {
+            icon.gain *= 3.;
+        }
+    }
+}
+
+fn sound_icon_exploration_focus_removed(
+    removed: RemovedComponents<ExplorationFocused>,
+    mut icons: Query<&mut SoundIcon>,
+) {
+    for entity in removed.iter() {
+        if let Ok(mut icon) = icons.get_component_mut::<SoundIcon>(entity) {
+            icon.gain /= 3.;
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default)]
 pub struct SoundPlugin;
 
 impl Plugin for SoundPlugin {
     fn build(&self, app: &mut AppBuilder) {
+        const SOUND_ICON_AND_EXPLORATION_STAGE: &str = "sound_icon_and_exploration";
         app.register_type::<Footstep>()
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 footstep.system().after(TransformSystem::TransformPropagate),
             )
             .register_type::<SoundIcon>()
-            .add_system(sound_icon.system());
+            .add_system(sound_icon.system())
+            .add_stage_after(
+                CoreStage::PostUpdate,
+                SOUND_ICON_AND_EXPLORATION_STAGE,
+                SystemStage::parallel(),
+            )
+            .add_system_to_stage(
+                SOUND_ICON_AND_EXPLORATION_STAGE,
+                sound_icon_exploration_focus_changed.system(),
+            )
+            .add_system_to_stage(
+                SOUND_ICON_AND_EXPLORATION_STAGE,
+                sound_icon_exploration_focus_removed.system(),
+            );
     }
 }
