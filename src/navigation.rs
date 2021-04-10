@@ -325,7 +325,7 @@ fn speak_direction(
 ) -> Result<(), Box<dyn Error>> {
     if let Ok((entity, _, yaw)) = player.single() {
         if let Some(old_direction) = cache.get(&entity) {
-            let old_direction = old_direction.clone();
+            let old_direction = *old_direction;
             let direction: MovementDirection = yaw.into();
             if old_direction != direction {
                 let direction: String = direction.into();

@@ -28,6 +28,8 @@ pub enum ExplorationType {
     Enemy = 4,
 }
 
+// Doesn't make sense to create from a `String`.
+#[allow(clippy::from_over_into)]
 impl Into<String> for ExplorationType {
     fn into(self) -> String {
         match self {
@@ -40,6 +42,8 @@ impl Into<String> for ExplorationType {
     }
 }
 
+// Likewise.
+#[allow(clippy::from_over_into)]
 impl Into<&str> for ExplorationType {
     fn into(self) -> &'static str {
         match self {
@@ -378,8 +382,7 @@ fn exploration_changed_announcement(
             } else {
                 "Unknown".to_string()
             };
-            let mut tokens: Vec<String> = vec![];
-            tokens.push(coordinates.distance_and_direction(exploring));
+            let mut tokens: Vec<String> = vec![coordinates.distance_and_direction(exploring)];
             if fog_of_war {
                 tokens.push("in the fog of war".into());
             }
