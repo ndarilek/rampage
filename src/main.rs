@@ -29,6 +29,7 @@ use crate::{
     map::{Map, MapConfig},
     navigation::{MaxSpeed, RotationSpeed, Speed, Velocity},
     sound::{Footstep, FootstepBundle},
+    visibility::{BlocksVisibility, Viewshed},
 };
 
 #[bevy_main]
@@ -119,6 +120,8 @@ struct PlayerBundle {
     velocity: Velocity,
     name: Name,
     mappable: Mappable,
+    viewshed: Viewshed,
+    blocks_visibility: BlocksVisibility,
 }
 
 impl Default for PlayerBundle {
@@ -136,6 +139,11 @@ impl Default for PlayerBundle {
             velocity: Default::default(),
             name: Name::new("You"),
             mappable: Default::default(),
+            viewshed: Viewshed {
+                range: 24,
+                ..Default::default()
+            },
+            blocks_visibility: Default::default(),
         }
     }
 }
