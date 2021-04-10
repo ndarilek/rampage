@@ -155,28 +155,26 @@ fn sound_icon(
                             .insert(GlobalTransform::default())
                             .id();
                         commands.entity(entity).push_children(&[child]);
-                    } else {
-                        if let Some(ref mut interval) = icon.interval {
-                            interval.tick(time.delta());
-                            if interval.finished() {
-                                if let Some(children) = children {
-                                    for child in children.iter() {
-                                        commands.entity(*child).despawn();
-                                    }
+                    } else if let Some(ref mut interval) = icon.interval {
+                        interval.tick(time.delta());
+                        if interval.finished() {
+                            if let Some(children) = children {
+                                for child in children.iter() {
+                                    commands.entity(*child).despawn();
                                 }
-                                let child = commands
-                                    .spawn()
-                                    .insert(sound)
-                                    .insert(Transform::default())
-                                    .insert(GlobalTransform::default())
-                                    .id();
-                                commands.entity(entity).push_children(&[child]);
-                                interval.reset();
-                            } else if let Some(children) = children {
-                                if let Some(child) = children.get(0) {
-                                    if let Ok(mut sound) = sounds.get_mut(*child) {
-                                        sound.gain = icon.gain;
-                                    }
+                            }
+                            let child = commands
+                                .spawn()
+                                .insert(sound)
+                                .insert(Transform::default())
+                                .insert(GlobalTransform::default())
+                                .id();
+                            commands.entity(entity).push_children(&[child]);
+                            interval.reset();
+                        } else if let Some(children) = children {
+                            if let Some(child) = children.get(0) {
+                                if let Ok(mut sound) = sounds.get_mut(*child) {
+                                    sound.gain = icon.gain;
                                 }
                             }
                         }
