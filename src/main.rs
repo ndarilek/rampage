@@ -69,8 +69,12 @@ fn main() {
             SystemSet::on_update(AppState::Loading)
                 .with_system(load.system().chain(error_handler.system())),
         )
-        .add_system_set(SystemSet::on_enter(AppState::InGame).with_system(spawn_map.system()))
-        .add_system(spawn_player.system())
+        .add_system_set(
+            SystemSet::on_enter(AppState::InGame)
+                .with_system(spawn_map.system())
+                .with_system(spawn_player.system()),
+        )
+        .add_system(position_player_at_start.system())
         .add_system(speak_info.system().chain(error_handler.system()))
         .run();
 }
@@ -230,24 +234,30 @@ fn spawn_map(mut commands: Commands) {
     commands.spawn().insert(map);
 }
 
-fn spawn_player(mut commands: Commands, sfx: Res<Sfx>, map: Query<&Map, Added<Map>>) {
+fn spawn_player(mut commands: Commands, sfx: Res<Sfx>) {
+    commands
+        .spawn()
+        .insert_bundle(PlayerBundle::default())
+        .with_children(|parent| {
+            parent.spawn().insert_bundle(FootstepBundle {
+                footstep: Footstep {
+                    sound: sfx.player_footstep,
+                    ..Default::default()
+                },
+                ..Default::default()
+            });
+        });
+}
+
+fn position_player_at_start(
+    mut player: Query<(&Player, &mut Coordinates)>,
+    map: Query<&Map, Added<Map>>,
+) {
     if let Ok(map) = map.single() {
         if let Some(start) = map.start() {
-            commands
-                .spawn()
-                .insert_bundle(PlayerBundle {
-                    coordinates: start.into(),
-                    ..Default::default()
-                })
-                .with_children(|parent| {
-                    parent.spawn().insert_bundle(FootstepBundle {
-                        footstep: Footstep {
-                            sound: sfx.player_footstep,
-                            ..Default::default()
-                        },
-                        ..Default::default()
-                    });
-                });
+            if let Ok((_, mut coordinates)) = player.single_mut() {
+                *coordinates = start.into();
+            }
         }
     }
 }
