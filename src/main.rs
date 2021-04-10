@@ -222,13 +222,13 @@ fn load(
 }
 
 fn spawn_map(mut commands: Commands) {
-    let map = MapBuilder::new(101, 101)
-        .with(crate::map::GridBuilder::new())
+    let map = MapBuilder::new(111, 111)
+        .with(crate::map::GridBuilder::new(10, 10, 10, 10))
         .with(mapgen::filter::AreaStartingPosition::new(
             mapgen::XStart::LEFT,
             mapgen::YStart::TOP,
         ))
-        .with(mapgen::filter::DistantExit::new())
+        //.with(mapgen::filter::DistantExit::new())
         .build();
     let map = Map::new(map);
     commands.spawn().insert(map);

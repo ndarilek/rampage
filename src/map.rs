@@ -121,11 +121,26 @@ impl Default for ExitBundle {
     }
 }
 
-pub struct GridBuilder;
+pub struct GridBuilder {
+    width_in_rooms: u32,
+    height_in_rooms: u32,
+    room_width: u32,
+    room_height: u32,
+}
 
 impl GridBuilder {
-    pub fn new() -> Box<GridBuilder> {
-        Box::new(GridBuilder {})
+    pub fn new(
+        width_in_rooms: u32,
+        height_in_rooms: u32,
+        room_width: u32,
+        room_height: u32,
+    ) -> Box<GridBuilder> {
+        Box::new(GridBuilder {
+            width_in_rooms,
+            height_in_rooms,
+            room_width,
+            room_height,
+        })
     }
 }
 
@@ -133,34 +148,42 @@ impl MapFilter for GridBuilder {
     fn modify_map(&self, _rng: &mut StdRng, map: &MapgenMap) -> MapgenMap {
         let mut map = map.clone();
         let mut generator = RbGenerator::new(None);
-        let maze = generator.generate(10, 10);
-        for y in 0..=9 {
-            for x in 0..=9 {
-                let x_offset = x * 10;
-                let y_offset = 90 - y * 10;
-                let room = MRect::new_i32(x_offset + 1, y_offset + 1, 9, 9);
+        let maze = generator.generate(self.width_in_rooms as i32, self.height_in_rooms as i32);
+        let total_height = (self.room_height + 1) * self.height_in_rooms + 1;
+        for y in 0..self.height_in_rooms {
+            for x in 0..self.width_in_rooms {
+                let x_offset = x * (self.room_width + 1);
+                let y_offset = total_height - (y * (self.room_height + 1)) - self.room_height - 2;
+                let room = MRect::new_i32(
+                    x_offset as i32 + 1,
+                    y_offset as i32 + 1,
+                    self.room_width as i32,
+                    self.room_height as i32,
+                );
                 map.add_room(room);
-                let coords = maze_generator::prelude::Coordinates::new(x, y);
+                let coords = maze_generator::prelude::Coordinates::new(x as i32, y as i32);
                 if let Some(field) = maze.get_field(&coords) {
+                    let half_width = self.room_width / 2;
+                    let half_height = self.room_height / 2;
                     use maze_generator::prelude::Direction::*;
                     if field.has_passage(&North) {
-                        let x = x_offset + 5;
-                        let y = y_offset + 10;
+                        let x = x_offset + half_width;
+                        let y = y_offset + self.room_height;
                         map.set_tile(x as usize, y as usize, TileType::Floor);
                     }
                     if field.has_passage(&South) {
-                        let x = x_offset + 5;
+                        let x = x_offset + half_width;
                         let y = y_offset;
                         map.set_tile(x as usize, y as usize, TileType::Floor);
                     }
                     if field.has_passage(&East) {
-                        let x = x_offset + 10;
-                        let y = y_offset + 5;
+                        let x = x_offset + self.room_width;
+                        let y = y_offset + half_height;
                         map.set_tile(x as usize, y as usize, TileType::Floor);
                     }
                     if field.has_passage(&West) {
                         let x = x_offset;
-                        let y = y_offset + 5;
+                        let y = y_offset + half_height;
                         map.set_tile(x as usize, y as usize, TileType::Floor);
                     }
                 }
