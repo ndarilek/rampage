@@ -2,6 +2,7 @@
 name = "rampage"
 version = "0.1.0"
 authors = ["Nolan Darilek <nolan@thewordnerd.info>"]
+license = "mit"
 edition = "2018"
 resolver = "2"
 
