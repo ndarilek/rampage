@@ -201,7 +201,112 @@ fn setup(
             0.5,
         )
         .bind(SPEAK_COORDINATES, KeyCode::C)
-        .bind(SPEAK_HEADING, KeyCode::H);
+        .bind(SPEAK_HEADING, KeyCode::H)
+        .bind(
+            exploration::ACTION_EXPLORE_FORWARD,
+            vec![KeyCode::LControl, KeyCode::Up],
+        )
+        .bind(
+            exploration::ACTION_EXPLORE_FORWARD,
+            vec![KeyCode::RControl, KeyCode::Up],
+        )
+        .bind_with_deadzone(
+            exploration::ACTION_EXPLORE_FORWARD,
+            GamepadAxisDirection::RightStickYPositive,
+            0.5,
+        )
+        .bind(
+            exploration::ACTION_EXPLORE_BACKWARD,
+            vec![KeyCode::LControl, KeyCode::Down],
+        )
+        .bind(
+            exploration::ACTION_EXPLORE_BACKWARD,
+            vec![KeyCode::RControl, KeyCode::Down],
+        )
+        .bind_with_deadzone(
+            exploration::ACTION_EXPLORE_BACKWARD,
+            GamepadAxisDirection::RightStickYNegative,
+            0.5,
+        )
+        .bind(
+            exploration::ACTION_EXPLORE_LEFT,
+            vec![KeyCode::LControl, KeyCode::Left],
+        )
+        .bind(
+            exploration::ACTION_EXPLORE_LEFT,
+            vec![KeyCode::RControl, KeyCode::Left],
+        )
+        .bind_with_deadzone(
+            exploration::ACTION_EXPLORE_LEFT,
+            GamepadAxisDirection::RightStickXNegative,
+            0.5,
+        )
+        .bind(
+            exploration::ACTION_EXPLORE_RIGHT,
+            vec![KeyCode::LControl, KeyCode::Right],
+        )
+        .bind(
+            exploration::ACTION_EXPLORE_RIGHT,
+            vec![KeyCode::RControl, KeyCode::Right],
+        )
+        .bind_with_deadzone(
+            exploration::ACTION_EXPLORE_RIGHT,
+            GamepadAxisDirection::RightStickXPositive,
+            0.5,
+        )
+        .bind(
+            exploration::ACTION_EXPLORE_FOCUS_NEXT,
+            vec![KeyCode::LAlt, KeyCode::Right],
+        )
+        .bind(
+            exploration::ACTION_EXPLORE_FOCUS_NEXT,
+            vec![KeyCode::RAlt, KeyCode::Right],
+        )
+        .bind(
+            exploration::ACTION_EXPLORE_FOCUS_NEXT,
+            GamepadButtonType::DPadRight,
+        )
+        .bind(
+            exploration::ACTION_EXPLORE_FOCUS_PREV,
+            vec![KeyCode::LAlt, KeyCode::Left],
+        )
+        .bind(
+            exploration::ACTION_EXPLORE_FOCUS_PREV,
+            vec![KeyCode::RAlt, KeyCode::Left],
+        )
+        .bind(
+            exploration::ACTION_EXPLORE_FOCUS_PREV,
+            GamepadButtonType::DPadLeft,
+        )
+        .bind(
+            exploration::ACTION_EXPLORE_SELECT_NEXT_TYPE,
+            vec![KeyCode::LAlt, KeyCode::Down],
+        )
+        .bind(
+            exploration::ACTION_EXPLORE_SELECT_NEXT_TYPE,
+            vec![KeyCode::RAlt, KeyCode::Down],
+        )
+        .bind(
+            exploration::ACTION_EXPLORE_SELECT_NEXT_TYPE,
+            GamepadButtonType::DPadDown,
+        )
+        .bind(
+            exploration::ACTION_EXPLORE_SELECT_PREV_TYPE,
+            vec![KeyCode::LAlt, KeyCode::Up],
+        )
+        .bind(
+            exploration::ACTION_EXPLORE_SELECT_PREV_TYPE,
+            vec![KeyCode::RAlt, KeyCode::Up],
+        )
+        .bind(
+            exploration::ACTION_EXPLORE_SELECT_PREV_TYPE,
+            GamepadButtonType::DPadUp,
+        )
+        .bind(exploration::ACTION_NAVIGATE_TO_EXPLORED, KeyCode::Return)
+        .bind(
+            exploration::ACTION_NAVIGATE_TO_EXPLORED,
+            GamepadButtonType::RightThumb,
+        );
     Ok(())
 }
 

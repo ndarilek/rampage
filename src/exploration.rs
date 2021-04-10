@@ -1,7 +1,7 @@
 use std::error::Error;
 
-use bevy::{input::gamepad::GamepadButtonType, prelude::*};
-use bevy_input_actionmap::{GamepadAxisDirection, InputMap};
+use bevy::prelude::*;
+use bevy_input_actionmap::InputMap;
 use bevy_tts::Tts;
 use derive_more::{Deref, DerefMut};
 use mapgen::TileType;
@@ -69,57 +69,15 @@ pub struct FocusedExplorationType(pub Option<ExplorationType>);
 #[reflect(Component)]
 pub struct Mappable;
 
-const EXPLORE_FORWARD: &str = "explore_forward";
-const EXPLORE_BACKWARD: &str = "explore_backward";
-const EXPLORE_LEFT: &str = "explore_left";
-const EXPLORE_RIGHT: &str = "explore_right";
-const EXPLORE_FOCUS_NEXT: &str = "explore_focus_next";
-const EXPLORE_FOCUS_PREV: &str = "explore_focus_prev";
-const EXPLORE_SELECT_NEXT_TYPE: &str = "explore_select_next_type";
-const EXPLORE_SELECT_PREV_TYPE: &str = "explore_select_prev_type";
-const NAVIGATE_TO: &str = "navigate_to";
-
-fn setup(mut input: ResMut<InputMap<String>>) {
-    input
-        .bind(EXPLORE_FORWARD, vec![KeyCode::LControl, KeyCode::Up])
-        .bind(EXPLORE_FORWARD, vec![KeyCode::RControl, KeyCode::Up])
-        .bind_with_deadzone(
-            EXPLORE_FORWARD,
-            GamepadAxisDirection::RightStickYPositive,
-            0.5,
-        )
-        .bind(EXPLORE_BACKWARD, vec![KeyCode::LControl, KeyCode::Down])
-        .bind(EXPLORE_BACKWARD, vec![KeyCode::RControl, KeyCode::Down])
-        .bind_with_deadzone(
-            EXPLORE_BACKWARD,
-            GamepadAxisDirection::RightStickYNegative,
-            0.5,
-        )
-        .bind(EXPLORE_LEFT, vec![KeyCode::LControl, KeyCode::Left])
-        .bind(EXPLORE_LEFT, vec![KeyCode::RControl, KeyCode::Left])
-        .bind_with_deadzone(EXPLORE_LEFT, GamepadAxisDirection::RightStickXNegative, 0.5)
-        .bind(EXPLORE_RIGHT, vec![KeyCode::LControl, KeyCode::Right])
-        .bind(EXPLORE_RIGHT, vec![KeyCode::RControl, KeyCode::Right])
-        .bind_with_deadzone(
-            EXPLORE_RIGHT,
-            GamepadAxisDirection::RightStickXPositive,
-            0.5,
-        )
-        .bind(EXPLORE_FOCUS_NEXT, vec![KeyCode::LAlt, KeyCode::Right])
-        .bind(EXPLORE_FOCUS_NEXT, vec![KeyCode::RAlt, KeyCode::Right])
-        .bind(EXPLORE_FOCUS_NEXT, GamepadButtonType::DPadRight)
-        .bind(EXPLORE_FOCUS_PREV, vec![KeyCode::LAlt, KeyCode::Left])
-        .bind(EXPLORE_FOCUS_PREV, vec![KeyCode::RAlt, KeyCode::Left])
-        .bind(EXPLORE_FOCUS_PREV, GamepadButtonType::DPadLeft)
-        .bind(EXPLORE_SELECT_NEXT_TYPE, vec![KeyCode::LAlt, KeyCode::Down])
-        .bind(EXPLORE_SELECT_NEXT_TYPE, vec![KeyCode::RAlt, KeyCode::Down])
-        .bind(EXPLORE_SELECT_NEXT_TYPE, GamepadButtonType::DPadDown)
-        .bind(EXPLORE_SELECT_PREV_TYPE, vec![KeyCode::LAlt, KeyCode::Up])
-        .bind(EXPLORE_SELECT_PREV_TYPE, vec![KeyCode::RAlt, KeyCode::Up])
-        .bind(EXPLORE_SELECT_PREV_TYPE, GamepadButtonType::DPadUp)
-        .bind(NAVIGATE_TO, KeyCode::Return)
-        .bind(NAVIGATE_TO, GamepadButtonType::RightThumb);
-}
+pub const ACTION_EXPLORE_FORWARD: &str = "explore_forward";
+pub const ACTION_EXPLORE_BACKWARD: &str = "explore_backward";
+pub const ACTION_EXPLORE_LEFT: &str = "explore_left";
+pub const ACTION_EXPLORE_RIGHT: &str = "explore_right";
+pub const ACTION_EXPLORE_FOCUS_NEXT: &str = "explore_focus_next";
+pub const ACTION_EXPLORE_FOCUS_PREV: &str = "explore_focus_prev";
+pub const ACTION_EXPLORE_SELECT_NEXT_TYPE: &str = "explore_select_next_type";
+pub const ACTION_EXPLORE_SELECT_PREV_TYPE: &str = "explore_select_prev_type";
+pub const ACTION_NAVIGATE_TO_EXPLORED: &str = "navigate_to";
 
 fn exploration_type_change(
     mut tts: ResMut<Tts>,
@@ -127,8 +85,8 @@ fn exploration_type_change(
     mut explorers: Query<(&Player, &Viewshed, &mut FocusedExplorationType)>,
     features: Query<(&Coordinates, &ExplorationType)>,
 ) -> Result<(), Box<dyn Error>> {
-    let changed =
-        input.just_active(EXPLORE_SELECT_NEXT_TYPE) || input.just_active(EXPLORE_SELECT_PREV_TYPE);
+    let changed = input.just_active(ACTION_EXPLORE_SELECT_NEXT_TYPE)
+        || input.just_active(ACTION_EXPLORE_SELECT_PREV_TYPE);
     if !changed {
         return Ok(());
     }
@@ -146,7 +104,7 @@ fn exploration_type_change(
         types.dedup();
         if types.is_empty() {
             tts.speak("Nothing visible.", true)?;
-        } else if input.just_active(EXPLORE_SELECT_PREV_TYPE) {
+        } else if input.just_active(ACTION_EXPLORE_SELECT_PREV_TYPE) {
             if let Some(t) = &focused.0 {
                 if let Some(i) = types.iter().position(|v| *v == *t) {
                     if i == 0 {
@@ -163,7 +121,7 @@ fn exploration_type_change(
                 let t = types.last().unwrap();
                 focused.0 = Some(*t);
             }
-        } else if input.just_active(EXPLORE_SELECT_NEXT_TYPE) {
+        } else if input.just_active(ACTION_EXPLORE_SELECT_NEXT_TYPE) {
             if let Some(t) = &focused.0 {
                 if let Some(i) = types.iter().position(|v| *v == *t) {
                     if i == types.len() - 1 {
@@ -198,7 +156,8 @@ fn exploration_type_focus(
     )>,
     features: Query<(&Coordinates, &ExplorationType)>,
 ) -> Result<(), Box<dyn Error>> {
-    let changed = input.just_active(EXPLORE_FOCUS_NEXT) || input.just_active(EXPLORE_FOCUS_PREV);
+    let changed = input.just_active(ACTION_EXPLORE_FOCUS_NEXT)
+        || input.just_active(ACTION_EXPLORE_FOCUS_PREV);
     if !changed {
         return Ok(());
     }
@@ -220,7 +179,7 @@ fn exploration_type_focus(
             tts.speak("Nothing visible.", true)?;
         } else {
             let mut target: Option<&(&Coordinates, &ExplorationType)> = None;
-            if input.just_active(EXPLORE_FOCUS_NEXT) {
+            if input.just_active(ACTION_EXPLORE_FOCUS_NEXT) {
                 if let Some(exploring) = exploring {
                     target = features.iter().find(|(c, _)| ***c > **exploring);
                     if target.is_none() {
@@ -229,7 +188,7 @@ fn exploration_type_focus(
                 } else {
                     target = features.first();
                 }
-            } else if input.just_active(EXPLORE_FOCUS_PREV) {
+            } else if input.just_active(ACTION_EXPLORE_FOCUS_PREV) {
                 if let Some(exploring) = exploring {
                     features.reverse();
                     target = features.iter().find(|(c, _)| ***c < **exploring);
@@ -291,13 +250,13 @@ fn exploration_focus(
                 coordinates
             };
             let orig = exploring;
-            if input.just_active(EXPLORE_FORWARD) {
+            if input.just_active(ACTION_EXPLORE_FORWARD) {
                 exploring.1 += 1.;
-            } else if input.just_active(EXPLORE_BACKWARD) {
+            } else if input.just_active(ACTION_EXPLORE_BACKWARD) {
                 exploring.1 -= 1.;
-            } else if input.just_active(EXPLORE_LEFT) {
+            } else if input.just_active(ACTION_EXPLORE_LEFT) {
                 exploring.0 -= 1.;
-            } else if input.just_active(EXPLORE_RIGHT) {
+            } else if input.just_active(ACTION_EXPLORE_RIGHT) {
                 exploring.0 += 1.;
             }
             if orig != exploring
@@ -323,7 +282,7 @@ fn navigate_to_explored(
             let point = **exploring;
             let idx = point.to_index(map.width());
             let known = revealed_tiles[idx];
-            if input.just_active(NAVIGATE_TO) && known {
+            if input.just_active(ACTION_NAVIGATE_TO_EXPLORED) && known {
                 commands
                     .entity(entity)
                     .insert(Destination((point.x_i32(), point.y_i32())));
@@ -399,7 +358,6 @@ impl Plugin for ExplorationPlugin {
         app.register_type::<ExplorationFocused>()
             .register_type::<ExplorationType>()
             .register_type::<Mappable>()
-            .add_startup_system(setup.system())
             .add_system(exploration_focus.system())
             .add_system(
                 exploration_type_focus
