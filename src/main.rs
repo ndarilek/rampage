@@ -9,7 +9,7 @@ use bevy::{
 use bevy_input_actionmap::{GamepadAxisDirection, InputMap};
 use bevy_openal::Listener;
 use bevy_tts::Tts;
-use mapgen::MapBuilder;
+use mapgen::{MapBuilder, TileType};
 
 #[macro_use]
 mod core;
@@ -27,9 +27,9 @@ use crate::{
     error::error_handler,
     exploration::Mappable,
     map::{Exit, Map, MapConfig},
-    navigation::{MaxSpeed, RotationSpeed, Speed, Velocity},
+    navigation::{MaxSpeed, MotionBlocked, RotationSpeed, Speed, Velocity},
     sound::{Footstep, FootstepBundle, SoundIcon},
-    visibility::{BlocksVisibility, Viewshed},
+    visibility::{BlocksVisibility, Viewshed, VisibilityBlocked},
 };
 
 #[bevy_main]
@@ -325,16 +325,31 @@ fn spawn_player(mut commands: Commands, sfx: Res<Sfx>) {
 fn exit_post_processor(
     mut commands: Commands,
     sfx: Res<Sfx>,
-    exits: Query<(Entity, &Exit), Added<Exit>>,
+    mut map: Query<(&mut Map, &mut MotionBlocked, &mut VisibilityBlocked)>,
+    exits: Query<(Entity, &Exit, &Coordinates), Added<Exit>>,
 ) {
-    for (entity, _) in exits.iter() {
-        commands.entity(entity).insert(Name::new("Exit"));
-        commands.entity(entity).insert(SoundIcon {
-            sound: sfx.exit,
-            gain: 0.5,
-            interval: None,
-            ..Default::default()
-        });
+    if let Ok((mut map, mut motion_blocked, mut visibility_blocked)) = map.single_mut() {
+        for (entity, _, coordinates) in exits.iter() {
+            commands.entity(entity).insert(Name::new("Exit"));
+            commands.entity(entity).insert(SoundIcon {
+                sound: sfx.exit,
+                gain: 0.5,
+                interval: None,
+                ..Default::default()
+            });
+            let x = coordinates.x_i32();
+            let y = coordinates.y_i32();
+            let exit_half_width = 2;
+            for x in (x - exit_half_width)..=(x + exit_half_width) {
+                for y in (y - exit_half_width)..=(y + exit_half_width) {
+                    map.base.set_tile(x as usize, y as usize, TileType::Floor);
+                    let coords: Coordinates = (x, y).into();
+                    let index = coords.to_index(map.width());
+                    motion_blocked[index] = false;
+                    visibility_blocked[index] = false;
+                }
+            }
+        }
     }
 }
 

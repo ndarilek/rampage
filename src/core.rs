@@ -13,6 +13,12 @@ impl From<(f32, f32)> for Coordinates {
     }
 }
 
+impl From<(i32, i32)> for Coordinates {
+    fn from(v: (i32, i32)) -> Self {
+        Coordinates((v.0 as f32, v.1 as f32))
+    }
+}
+
 impl From<(usize, usize)> for Coordinates {
     fn from(v: (usize, usize)) -> Self {
         Coordinates((v.0 as f32, v.1 as f32))
