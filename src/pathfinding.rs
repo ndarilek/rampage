@@ -6,7 +6,7 @@ use derive_more::{Deref, DerefMut};
 use pathfinding::prelude::*;
 
 use crate::{
-    core::{Angle, Coordinates, PointLike, Yaw},
+    core::{Coordinates, PointLike},
     map::Map,
     navigation::{MotionBlocked, RotationSpeed, Speed, Velocity},
 };
@@ -126,11 +126,11 @@ fn negotiate_path(
         &mut Velocity,
         &Speed,
         Option<&RotationSpeed>,
-        Option<&mut Yaw>,
+        &mut Transform,
     )>,
     map: Query<(&Map, &MotionBlocked)>,
 ) {
-    for (entity, mut path, mut coordinates, mut velocity, speed, rotation_speed, mut yaw) in
+    for (entity, mut path, mut coordinates, mut velocity, speed, rotation_speed, mut transform) in
         query.iter_mut()
     {
         for (map, motion_blocked) in map.iter() {
@@ -159,13 +159,10 @@ fn negotiate_path(
                 let next = path[1];
                 let next = Vec2::new(next.0 as f32, next.1 as f32);
                 if rotation_speed.is_some() {
-                    if let Some(ref mut yaw) = yaw {
-                        let start = start.floor();
-                        let v = next - start;
-                        let angle = v.y.atan2(v.x);
-                        let angle = Angle::Radians(angle);
-                        ***yaw = angle;
-                    }
+                    let start = start.floor();
+                    let v = next - start;
+                    let angle = v.y.atan2(v.x);
+                    transform.rotation = Quat::from_rotation_z(angle);
                 }
                 let mut direction = next - start;
                 direction = direction.normalize();

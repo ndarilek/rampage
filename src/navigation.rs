@@ -6,7 +6,7 @@ use bevy_tts::Tts;
 use derive_more::{Deref, DerefMut};
 
 use crate::{
-    core::{Angle, Coordinates, MovementDirection, Player, PointLike, Yaw},
+    core::{Angle, Coordinates, MovementDirection, Player, PointLike},
     error::error_handler,
     exploration::{ExplorationFocused, Exploring},
     map::{ITileType, Map},
@@ -85,13 +85,13 @@ fn movement_controls(
         &mut Velocity,
         &mut Speed,
         &MaxSpeed,
-        Option<&mut Yaw>,
         Option<&RotationSpeed>,
+        &mut Transform,
         Option<&Destination>,
     )>,
     exploration_focused: Query<(Entity, &ExplorationFocused)>,
 ) {
-    for (entity, mut velocity, mut speed, max_speed, yaw, rotation_speed, destination) in
+    for (entity, mut velocity, mut speed, max_speed, rotation_speed, mut transform, destination) in
         query.iter_mut()
     {
         let sprinting = input.active(ACTION_SPRINT);
@@ -100,7 +100,7 @@ fn movement_controls(
         } else {
             commands.entity(entity).remove::<Sprinting>();
         }
-        let mut direction = Vec2::default();
+        let mut direction = Vec3::default();
         if input.active(ACTION_FORWARD) {
             direction.x += 1.;
         }
@@ -113,16 +113,13 @@ fn movement_controls(
         if input.active(ACTION_RIGHT) {
             direction.y -= 1.;
         }
-        let mut yaw_clone: Option<Angle> = None;
-        if let (Some(mut yaw), Some(rotation_speed)) = (yaw, rotation_speed) {
-            yaw_clone = Some(**yaw);
-            let radians = yaw.radians();
-            let delta_radians = rotation_speed.radians() * time.delta_seconds();
+        if let Some(rotation_speed) = rotation_speed {
+            let delta = rotation_speed.radians() * time.delta_seconds();
             if input.active(ACTION_ROTATE_LEFT) {
-                **yaw = Angle::Radians(radians + delta_radians);
+                transform.rotate(Quat::from_rotation_z(delta));
             }
             if input.active(ACTION_ROTATE_RIGHT) {
-                **yaw = Angle::Radians(radians - delta_radians);
+                transform.rotate(Quat::from_rotation_z(-delta));
             }
         }
         if direction.length_squared() != 0. {
@@ -137,7 +134,7 @@ fn movement_controls(
             let right_y = input.strength(ACTION_RIGHT).abs();
             let left_y = input.strength(ACTION_LEFT).abs();
             let y = if right_y > left_y { right_y } else { left_y };
-            let strength = Vec2::new(x, y);
+            let strength = Vec3::new(x, y, 0.);
             let s = if sprinting {
                 **max_speed
             } else {
@@ -151,10 +148,12 @@ fn movement_controls(
             for (entity, _) in exploration_focused.iter() {
                 commands.entity(entity).remove::<ExplorationFocused>();
             }
-            if let Some(yaw) = yaw_clone {
+            direction = transform.compute_matrix().transform_vector3(direction);
+            /*if let Some(yaw) = yaw_clone {
                 let yaw = Mat3::from_rotation_z(yaw.radians());
                 direction = yaw.transform_vector2(direction);
-            }
+            }*/
+            let direction = Vec2::new(direction.x, direction.y);
             **velocity = direction;
         } else if destination.is_none() {
             **velocity = Vec2::ZERO;
@@ -321,9 +320,11 @@ fn add_collision_indices(
 fn speak_direction(
     mut tts: ResMut<Tts>,
     mut cache: Local<HashMap<Entity, MovementDirection>>,
-    player: Query<(Entity, &Player, &Yaw), Changed<Yaw>>,
+    player: Query<(Entity, &Player, &Transform), Changed<Transform>>,
 ) -> Result<(), Box<dyn Error>> {
-    if let Ok((entity, _, yaw)) = player.single() {
+    if let Ok((entity, _, transform)) = player.single() {
+        let forward = transform.local_x();
+        let yaw = Angle::Radians(forward.y.atan2(forward.x));
         if let Some(old_direction) = cache.get(&entity) {
             let old_direction = *old_direction;
             let direction: MovementDirection = yaw.into();

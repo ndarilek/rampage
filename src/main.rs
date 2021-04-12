@@ -23,7 +23,7 @@ mod sound;
 mod visibility;
 
 use crate::{
-    core::{Angle, Coordinates, Player, PointLike, Yaw},
+    core::{Angle, Coordinates, Player, PointLike},
     error::error_handler,
     exploration::Mappable,
     map::{Exit, Map, MapConfig},
@@ -114,7 +114,6 @@ struct PlayerBundle {
     player: Player,
     listener: Listener,
     coordinates: Coordinates,
-    yaw: Yaw,
     rotation_speed: RotationSpeed,
     transform: Transform,
     global_transform: GlobalTransform,
@@ -133,7 +132,6 @@ impl Default for PlayerBundle {
             player: Default::default(),
             listener: Default::default(),
             coordinates: Default::default(),
-            yaw: Default::default(),
             rotation_speed: RotationSpeed(Angle::Degrees(45.)),
             transform: Default::default(),
             global_transform: Default::default(),
@@ -397,7 +395,7 @@ fn position_player_at_start(
 fn speak_info(
     input: Res<InputMap<String>>,
     mut tts: ResMut<Tts>,
-    player: Query<(&Player, &Coordinates, &Yaw)>,
+    player: Query<(&Player, &Coordinates, &Transform)>,
 ) -> Result<(), Box<dyn Error>> {
     if input.just_active(SPEAK_COORDINATES) {
         if let Ok((_, coordinates, _)) = player.single() {
@@ -408,7 +406,9 @@ fn speak_info(
         }
     }
     if input.just_active(SPEAK_HEADING) {
-        if let Ok((_, _, yaw)) = player.single() {
+        if let Ok((_, _, transform)) = player.single() {
+            let forward = transform.local_x();
+            let yaw = Angle::Radians(forward.y.atan2(forward.x));
             tts.speak(format!("{} degrees", yaw.degrees_u32()), true)?;
         }
     }

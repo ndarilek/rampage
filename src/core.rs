@@ -126,12 +126,6 @@ impl From<Angle> for MovementDirection {
     }
 }
 
-impl From<&Yaw> for MovementDirection {
-    fn from(yaw: &Yaw) -> Self {
-        MovementDirection::from(yaw.0)
-    }
-}
-
 // Converting from strings into directions doesn't make sense.
 #[allow(clippy::from_over_into)]
 impl Into<String> for MovementDirection {
@@ -279,29 +273,12 @@ impl From<&dyn PointLike> for (i32, i32) {
 #[reflect(Component)]
 pub struct Player;
 
-#[derive(Clone, Copy, Debug, Default, Deref, DerefMut, Reflect)]
-#[reflect(Component)]
-pub struct Yaw(pub Angle);
-
-impl From<Angle> for Yaw {
-    fn from(a: Angle) -> Self {
-        Self(a)
-    }
-}
-
 fn copy_coordinates_to_transform(
-    mut query: Query<
-        (&Coordinates, Option<&Yaw>, &mut Transform),
-        Or<(Changed<Coordinates>, Changed<Yaw>)>,
-    >,
+    mut query: Query<(&Coordinates, &mut Transform), Changed<Coordinates>>,
 ) {
-    for (coordinates, yaw, mut transform) in query.iter_mut() {
+    for (coordinates, mut transform) in query.iter_mut() {
         transform.translation.x = coordinates.0 .0;
         transform.translation.y = coordinates.0 .1;
-        if let Some(yaw) = yaw {
-            let rotation = Quat::from_rotation_z(yaw.radians());
-            transform.rotate(rotation);
-        }
     }
 }
 
@@ -310,7 +287,6 @@ pub struct CorePlugin;
 impl Plugin for CorePlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.register_type::<Coordinates>()
-            .register_type::<Yaw>()
             .add_system(copy_coordinates_to_transform.system())
             .add_system_to_stage(
                 CoreStage::PostUpdate,
