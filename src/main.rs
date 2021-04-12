@@ -1,6 +1,6 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
-use std::error::Error;
+use std::{error::Error, f32::consts::PI};
 
 use bevy::{
     asset::{HandleId, LoadState},
@@ -78,6 +78,7 @@ fn main() {
         .add_system(exit_post_processor.system())
         .add_system(position_player_at_start.system())
         .add_system(speak_info.system().chain(error_handler.system()))
+        .add_system(snap.system())
         .run();
 }
 
@@ -151,6 +152,8 @@ impl Default for PlayerBundle {
 
 const SPEAK_COORDINATES: &str = "SPEAK_COORDINATES";
 const SPEAK_HEADING: &str = "SPEAK_HEADING";
+const SNAP_LEFT: &str = "SNAP_LEFT";
+const SNAP_RIGHT: &str = "SNAP_RIGHT";
 
 fn setup(
     asset_server: Res<AssetServer>,
@@ -213,11 +216,11 @@ fn setup(
         .bind(SPEAK_HEADING, KeyCode::H)
         .bind(
             exploration::ACTION_EXPLORE_FORWARD,
-            vec![KeyCode::LControl, KeyCode::Up],
+            vec![KeyCode::LAlt, KeyCode::Up],
         )
         .bind(
             exploration::ACTION_EXPLORE_FORWARD,
-            vec![KeyCode::RControl, KeyCode::Up],
+            vec![KeyCode::RAlt, KeyCode::Up],
         )
         .bind_with_deadzone(
             exploration::ACTION_EXPLORE_FORWARD,
@@ -226,11 +229,11 @@ fn setup(
         )
         .bind(
             exploration::ACTION_EXPLORE_BACKWARD,
-            vec![KeyCode::LControl, KeyCode::Down],
+            vec![KeyCode::LAlt, KeyCode::Down],
         )
         .bind(
             exploration::ACTION_EXPLORE_BACKWARD,
-            vec![KeyCode::RControl, KeyCode::Down],
+            vec![KeyCode::RAlt, KeyCode::Down],
         )
         .bind_with_deadzone(
             exploration::ACTION_EXPLORE_BACKWARD,
@@ -239,11 +242,11 @@ fn setup(
         )
         .bind(
             exploration::ACTION_EXPLORE_LEFT,
-            vec![KeyCode::LControl, KeyCode::Left],
+            vec![KeyCode::LAlt, KeyCode::Left],
         )
         .bind(
             exploration::ACTION_EXPLORE_LEFT,
-            vec![KeyCode::RControl, KeyCode::Left],
+            vec![KeyCode::RAlt, KeyCode::Left],
         )
         .bind_with_deadzone(
             exploration::ACTION_EXPLORE_LEFT,
@@ -252,70 +255,26 @@ fn setup(
         )
         .bind(
             exploration::ACTION_EXPLORE_RIGHT,
-            vec![KeyCode::LControl, KeyCode::Right],
+            vec![KeyCode::LAlt, KeyCode::Right],
         )
         .bind(
             exploration::ACTION_EXPLORE_RIGHT,
-            vec![KeyCode::RControl, KeyCode::Right],
+            vec![KeyCode::RAlt, KeyCode::Right],
         )
         .bind_with_deadzone(
             exploration::ACTION_EXPLORE_RIGHT,
             GamepadAxisDirection::RightStickXPositive,
             0.5,
         )
-        .bind(
-            exploration::ACTION_EXPLORE_FOCUS_NEXT,
-            vec![KeyCode::LAlt, KeyCode::Right],
-        )
-        .bind(
-            exploration::ACTION_EXPLORE_FOCUS_NEXT,
-            vec![KeyCode::RAlt, KeyCode::Right],
-        )
-        .bind(
-            exploration::ACTION_EXPLORE_FOCUS_NEXT,
-            GamepadButtonType::DPadRight,
-        )
-        .bind(
-            exploration::ACTION_EXPLORE_FOCUS_PREV,
-            vec![KeyCode::LAlt, KeyCode::Left],
-        )
-        .bind(
-            exploration::ACTION_EXPLORE_FOCUS_PREV,
-            vec![KeyCode::RAlt, KeyCode::Left],
-        )
-        .bind(
-            exploration::ACTION_EXPLORE_FOCUS_PREV,
-            GamepadButtonType::DPadLeft,
-        )
-        .bind(
-            exploration::ACTION_EXPLORE_SELECT_NEXT_TYPE,
-            vec![KeyCode::LAlt, KeyCode::Down],
-        )
-        .bind(
-            exploration::ACTION_EXPLORE_SELECT_NEXT_TYPE,
-            vec![KeyCode::RAlt, KeyCode::Down],
-        )
-        .bind(
-            exploration::ACTION_EXPLORE_SELECT_NEXT_TYPE,
-            GamepadButtonType::DPadDown,
-        )
-        .bind(
-            exploration::ACTION_EXPLORE_SELECT_PREV_TYPE,
-            vec![KeyCode::LAlt, KeyCode::Up],
-        )
-        .bind(
-            exploration::ACTION_EXPLORE_SELECT_PREV_TYPE,
-            vec![KeyCode::RAlt, KeyCode::Up],
-        )
-        .bind(
-            exploration::ACTION_EXPLORE_SELECT_PREV_TYPE,
-            GamepadButtonType::DPadUp,
-        )
         .bind(exploration::ACTION_NAVIGATE_TO_EXPLORED, KeyCode::Return)
         .bind(
             exploration::ACTION_NAVIGATE_TO_EXPLORED,
             GamepadButtonType::RightThumb,
-        );
+        )
+        .bind(SNAP_LEFT, vec![KeyCode::LControl, KeyCode::Left])
+        .bind(SNAP_LEFT, vec![KeyCode::RControl, KeyCode::Left])
+        .bind(SNAP_RIGHT, vec![KeyCode::LControl, KeyCode::Right])
+        .bind(SNAP_RIGHT, vec![KeyCode::RControl, KeyCode::Right]);
     Ok(())
 }
 
@@ -380,13 +339,14 @@ fn exit_post_processor(
 }
 
 fn position_player_at_start(
-    mut player: Query<(&Player, &mut Coordinates)>,
+    mut player: Query<(&Player, &mut Coordinates, &mut Transform)>,
     map: Query<&Map, Added<Map>>,
 ) {
     if let Ok(map) = map.single() {
         if let Some(start) = map.start() {
-            if let Ok((_, mut coordinates)) = player.single_mut() {
+            if let Ok((_, mut coordinates, mut transform)) = player.single_mut() {
                 *coordinates = start.into();
+                //transform.rotation = Quat::from_rotation_z(PI / 2.);
             }
         }
     }
@@ -406,6 +366,7 @@ fn speak_info(
         }
     }
     if input.just_active(SPEAK_HEADING) {
+        if input.just_active(SNAP_RIGHT) {}
         if let Ok((_, _, transform)) = player.single() {
             let forward = transform.local_x();
             let yaw = Angle::Radians(forward.y.atan2(forward.x));
@@ -413,4 +374,41 @@ fn speak_info(
         }
     }
     Ok(())
+}
+
+fn snap(input: Res<InputMap<String>>, mut transform: Query<(&Player, &mut Transform)>) {
+    if input.just_active(SNAP_LEFT) {
+        for (_, mut transform) in transform.iter_mut() {
+            let forward = transform.local_x();
+            let yaw = forward.y.atan2(forward.x);
+            if yaw >= 0. && yaw < PI / 2. {
+                transform.rotation = Quat::from_rotation_z(PI / 2.);
+            } else if yaw >= PI / 2. && yaw < PI {
+                transform.rotation = Quat::from_rotation_z(PI);
+            } else if yaw < -PI / 2. {
+                transform.rotation = Quat::from_rotation_z(-PI / 2.);
+            } else {
+                transform.rotation = Quat::from_rotation_z(0.);
+            }
+        }
+    }
+    if input.just_active(SNAP_RIGHT) {
+        for (_, mut transform) in transform.iter_mut() {
+            let forward = transform.local_x();
+            let yaw = forward.y.atan2(forward.x);
+            if yaw == 0. {
+                transform.rotation = Quat::from_rotation_z(-PI / 2.);
+                return;
+            }
+            if yaw > 0. && yaw <= PI / 2. {
+                transform.rotation = Quat::from_rotation_z(0.);
+            } else if yaw > 0. && yaw <= PI {
+                transform.rotation = Quat::from_rotation_z(PI / 2.);
+            } else if yaw <= -PI / 2. {
+                transform.rotation = Quat::from_rotation_z(-PI);
+            } else {
+                transform.rotation = Quat::from_rotation_z(-PI / 2.);
+            }
+        }
+    }
 }
