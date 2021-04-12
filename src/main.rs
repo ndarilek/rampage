@@ -345,8 +345,8 @@ fn position_player_at_start(
     if let Ok(map) = map.single() {
         if let Some(start) = map.start() {
             if let Ok((_, mut coordinates, mut transform)) = player.single_mut() {
-                *coordinates = start.into();
-                //transform.rotation = Quat::from_rotation_z(PI / 2.);
+                *coordinates = (8, 8).into();
+                transform.rotation = Quat::from_rotation_z(-PI / 2.);
             }
         }
     }

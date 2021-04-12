@@ -377,7 +377,7 @@ impl Plugin for NavigationPlugin {
                     .label(UPDATE_COLLISION_INDEX_LABEL),
             )
             .add_system(add_collision_indices.system())
-            .add_system(speak_direction.system().chain(error_handler.system()))
+            //.add_system(speak_direction.system().chain(error_handler.system()))
             .add_system_to_stage(CoreStage::PostUpdate, add_collision_indices.system());
     }
 }
