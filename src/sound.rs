@@ -143,6 +143,7 @@ fn sound_icon(
                     let sound = Sound {
                         buffer,
                         gain: icon.gain,
+                        pitch: icon.pitch,
                         looping,
                         state: SoundState::Playing,
                         ..Default::default()
@@ -175,6 +176,7 @@ fn sound_icon(
                             if let Some(child) = children.get(0) {
                                 if let Ok(mut sound) = sounds.get_mut(*child) {
                                     sound.gain = icon.gain;
+                                    sound.pitch = icon.pitch;
                                 }
                             }
                         }
