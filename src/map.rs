@@ -181,11 +181,11 @@ impl MapFilter for GridBuilder {
                         let y = y_offset + half_height;
                         map.set_tile(x as usize, y as usize, TileType::Floor);
                     }
-                    /*if field.has_passage(&West) {
+                    if field.has_passage(&West) {
                         let x = x_offset;
                         let y = y_offset + half_height;
                         map.set_tile(x as usize, y as usize, TileType::Floor);
-                    }*/
+                    }
                 }
             }
         }
