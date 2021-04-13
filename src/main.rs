@@ -563,13 +563,13 @@ fn highlight_next_exit(
                     'step: for step in path {
                         let step: Coordinates = step.into();
                         for (entity, _, coordinates) in next_exit.iter() {
-                            if step.distance(&coordinates) <= 5. {
+                            if step.distance(&coordinates) <= 10. {
                                 commands.entity(entity).remove::<NextExit>();
                                 continue 'step;
                             }
                         }
                         for (entity, _, coordinates) in exits.iter() {
-                            if step.distance(&coordinates) <= 5. {
+                            if step.distance(&coordinates) <= 10. {
                                 commands.entity(entity).insert(NextExit);
                                 break 'step;
                             }
