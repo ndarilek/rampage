@@ -85,6 +85,7 @@ fn main() {
                 .after(HIGHLIGHT_NEXT_EXIT_LABEL),
         )
         .add_system(spawn_ambience.system())
+        .add_system(spawn_level_exit.system())
         .add_system(position_player_at_start.system())
         .add_system(speak_info.system().chain(error_handler.system()))
         .add_system(snap.system())
@@ -115,6 +116,7 @@ struct AssetHandles {
 struct Sfx {
     ambiences: Vec<HandleId>,
     exit: HandleId,
+    level_exit: HandleId,
     player_footstep: HandleId,
 }
 
@@ -130,6 +132,7 @@ impl Default for Sfx {
                 "sfx/ambience6.flac".into(),
             ],
             exit: "sfx/exit.wav".into(),
+            level_exit: "sfx/level_exit.flac".into(),
             player_footstep: "sfx/player_footstep.flac".into(),
         }
     }
@@ -190,6 +193,7 @@ fn setup(
     handles.sfx = asset_server.load_folder("sfx")?;
     let mut slot = context.new_aux_effect_slot()?;
     let mut reverb = context.new_effect::<efx::EaxReverbEffect>()?;
+    reverb.set_preset(&efx::REVERB_PRESET_FACTORY_ALCOVE)?;
     reverb.set_preset(&efx::REVERB_PRESET_GENERIC)?;
     slot.set_effect(&reverb)?;
     global_effects.push(slot);
@@ -406,7 +410,7 @@ fn spawn_ambience(
                     buffer: buffers.get_handle(*handle),
                     state: SoundState::Playing,
                     looping: true,
-                    gain: 0.5,
+                    gain: 0.1,
                     ..Default::default()
                 };
                 let x = (rng.gen_range(area.rect.x1..area.rect.x2)) as f32;
@@ -418,6 +422,30 @@ fn spawn_ambience(
                     .insert(Transform::default());
                 break;
             }
+        }
+    }
+}
+
+fn spawn_level_exit(
+    mut commands: Commands,
+    sfx: Res<Sfx>,
+    buffers: Res<Assets<Buffer>>,
+    map: Query<&Map, Added<Map>>,
+) {
+    for map in map.iter() {
+        if let Some(exit) = map.exit() {
+            let sound = Sound {
+                buffer: buffers.get_handle(sfx.level_exit),
+                state: SoundState::Playing,
+                looping: true,
+                gain: 0.5,
+                ..Default::default()
+            };
+            commands
+                .spawn()
+                .insert(sound)
+                .insert(Coordinates((exit.x as f32, exit.y as f32)))
+                .insert(Transform::default());
         }
     }
 }
