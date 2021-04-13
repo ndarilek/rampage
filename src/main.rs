@@ -410,7 +410,7 @@ fn spawn_ambience(
                     buffer: buffers.get_handle(*handle),
                     state: SoundState::Playing,
                     looping: true,
-                    gain: 0.1,
+                    gain: 0.2,
                     ..Default::default()
                 };
                 let x = (rng.gen_range(area.rect.x1..area.rect.x2)) as f32;
@@ -431,7 +431,7 @@ fn spawn_level_exit(mut commands: Commands, sfx: Res<Sfx>, map: Query<&Map, Adde
         if let Some(exit) = map.exit() {
             let sound = SoundIcon {
                 sound: sfx.level_exit,
-                gain: 0.5,
+                gain: 1.,
                 ..Default::default()
             };
             commands
@@ -439,6 +439,7 @@ fn spawn_level_exit(mut commands: Commands, sfx: Res<Sfx>, map: Query<&Map, Adde
                 .insert(sound)
                 .insert(Coordinates((exit.x as f32, exit.y as f32)))
                 .insert(Transform::default());
+            println!("{:?}", exit);
         }
     }
 }
@@ -553,18 +554,15 @@ fn highlight_next_exit(
             use NextExitMsg::*;
             match msg {
                 Path(path) => {
-                    'step: for step in path {
+                    for (entity, _, _) in next_exit.iter() {
+                        commands.entity(entity).remove::<NextExit>();
+                    }
+                    for step in path {
                         let step: Coordinates = step.into();
-                        for (entity, _, coordinates) in next_exit.iter() {
-                            if step.distance(&coordinates) <= 10. {
-                                commands.entity(entity).remove::<NextExit>();
-                                continue 'step;
-                            }
-                        }
                         for (entity, _, coordinates) in exits.iter() {
-                            if step.distance(&coordinates) <= 10. {
+                            if step.distance(&coordinates) <= 3. {
                                 commands.entity(entity).insert(NextExit);
-                                break 'step;
+                                return;
                             }
                         }
                     }
@@ -593,14 +591,12 @@ fn highlight_next_exit(
                     recalculate = true;
                 }
                 if recalculate {
-                    let coordinates_clone = coordinates.clone();
+                    let start = current_area.center();
                     let map_clone = map.clone();
                     if let Some(sender) = sender.clone() {
                         pool.spawn(async move {
                             if let Some(destination) = map_clone.exit() {
-                                if let Some(result) =
-                                    find_path(&coordinates_clone, &destination, &map_clone)
-                                {
+                                if let Some(result) = find_path(&start, &destination, &map_clone) {
                                     let path = result.0;
                                     sender.send(NextExitMsg::Path(path)).unwrap();
                                 } else {
@@ -618,7 +614,7 @@ fn highlight_next_exit(
 
 fn next_exit_added(mut next_exit: Query<(&NextExit, &mut SoundIcon), Added<NextExit>>) {
     for (_, mut icon) in next_exit.iter_mut() {
-        icon.gain = 0.4;
+        icon.gain = 0.3;
         icon.pitch = 1.;
     }
 }
