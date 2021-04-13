@@ -8,7 +8,7 @@ use bevy::{
     tasks::AsyncComputeTaskPool,
 };
 use bevy_input_actionmap::{GamepadAxisDirection, InputMap};
-use bevy_openal::{Buffer, Listener, Sound, SoundState};
+use bevy_openal::{efx, Buffer, Context, GlobalEffects, Listener, Sound, SoundState};
 use bevy_tts::Tts;
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use mapgen::{MapBuilder, TileType};
@@ -184,8 +184,15 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut handles: ResMut<AssetHandles>,
     mut input: ResMut<InputMap<String>>,
+    context: ResMut<Context>,
+    mut global_effects: ResMut<GlobalEffects>,
 ) -> Result<(), Box<dyn Error>> {
     handles.sfx = asset_server.load_folder("sfx")?;
+    let mut slot = context.new_aux_effect_slot()?;
+    let mut reverb = context.new_effect::<efx::EaxReverbEffect>()?;
+    reverb.set_preset(&efx::REVERB_PRESET_GENERIC)?;
+    slot.set_effect(&reverb)?;
+    global_effects.push(slot);
     input
         .bind(navigation::ACTION_FORWARD, KeyCode::Up)
         .bind_with_deadzone(
@@ -590,7 +597,7 @@ fn highlight_next_exit(
 
 fn next_exit_added(mut next_exit: Query<(&NextExit, &mut SoundIcon), Added<NextExit>>) {
     for (_, mut icon) in next_exit.iter_mut() {
-        icon.gain = 0.5;
+        icon.gain = 0.4;
         icon.pitch = 1.;
     }
 }
