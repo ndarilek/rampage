@@ -8,10 +8,11 @@ use bevy::{
     tasks::AsyncComputeTaskPool,
 };
 use bevy_input_actionmap::{GamepadAxisDirection, InputMap};
-use bevy_openal::Listener;
+use bevy_openal::{Buffer, Listener, Sound, SoundState};
 use bevy_tts::Tts;
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use mapgen::{MapBuilder, TileType};
+use rand::prelude::*;
 
 #[macro_use]
 mod core;
@@ -83,6 +84,7 @@ fn main() {
                 .system()
                 .after(HIGHLIGHT_NEXT_EXIT_LABEL),
         )
+        .add_system(spawn_ambience.system())
         .add_system(position_player_at_start.system())
         .add_system(speak_info.system().chain(error_handler.system()))
         .add_system(snap.system())
@@ -109,8 +111,9 @@ struct AssetHandles {
     sfx: Vec<HandleUntyped>,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 struct Sfx {
+    ambiences: Vec<HandleId>,
     exit: HandleId,
     player_footstep: HandleId,
 }
@@ -118,6 +121,14 @@ struct Sfx {
 impl Default for Sfx {
     fn default() -> Self {
         Self {
+            ambiences: vec![
+                "sfx/ambience1.flac".into(),
+                "sfx/ambience2.flac".into(),
+                "sfx/ambience3.flac".into(),
+                "sfx/ambience4.flac".into(),
+                "sfx/ambience5.flac".into(),
+                "sfx/ambience6.flac".into(),
+            ],
             exit: "sfx/exit.wav".into(),
             player_footstep: "sfx/player_footstep.flac".into(),
         }
@@ -367,6 +378,43 @@ fn exit_post_processor(
     }
 }
 
+fn spawn_ambience(
+    mut commands: Commands,
+    sfx: Res<Sfx>,
+    buffers: Res<Assets<Buffer>>,
+    areas: Query<&Areas, Added<Areas>>,
+) {
+    if let Ok(areas) = areas.single() {
+        let mut contains_ambience: Vec<Area> = vec![];
+        let mut rng = thread_rng();
+        for handle in &sfx.ambiences {
+            loop {
+                let area_index = rng.gen_range(0..areas.len());
+                let area = &areas[area_index];
+                if contains_ambience.contains(&area) {
+                    continue;
+                }
+                contains_ambience.push(area.clone());
+                let sound = Sound {
+                    buffer: buffers.get_handle(*handle),
+                    state: SoundState::Playing,
+                    looping: true,
+                    gain: 0.5,
+                    ..Default::default()
+                };
+                let x = (rng.gen_range(area.rect.x1..area.rect.x2)) as f32;
+                let y = (rng.gen_range(area.rect.y1..area.rect.y2)) as f32;
+                commands
+                    .spawn()
+                    .insert(sound)
+                    .insert(Coordinates((x, y)))
+                    .insert(Transform::default());
+                break;
+            }
+        }
+    }
+}
+
 fn position_player_at_start(
     mut player: Query<(&Player, &mut Coordinates, &mut Transform)>,
     map: Query<(&Map, &Areas), Added<Areas>>,
@@ -542,7 +590,7 @@ fn highlight_next_exit(
 
 fn next_exit_added(mut next_exit: Query<(&NextExit, &mut SoundIcon), Added<NextExit>>) {
     for (_, mut icon) in next_exit.iter_mut() {
-        icon.gain = 1.;
+        icon.gain = 0.5;
         icon.pitch = 1.;
     }
 }
