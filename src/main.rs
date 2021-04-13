@@ -347,7 +347,7 @@ fn exit_post_processor(
             commands.entity(entity).insert(Name::new("Exit"));
             commands.entity(entity).insert(SoundIcon {
                 sound: sfx.exit,
-                gain: 0.5,
+                gain: 0.1,
                 interval: None,
                 pitch: 0.5,
             });
@@ -464,7 +464,6 @@ fn highlight_next_exit(
     exits: Query<(Entity, &Exit, &Coordinates)>,
     next_exit: Query<(Entity, &NextExit, &Coordinates)>,
     pool: Res<AsyncComputeTaskPool>,
-    mut recalculate: Local<bool>,
     mut sender: Local<Option<Sender<NextExitMsg>>>,
     mut receiver: Local<Option<Receiver<NextExitMsg>>>,
 ) {
@@ -478,30 +477,26 @@ fn highlight_next_exit(
             use NextExitMsg::*;
             match msg {
                 Path(path) => {
-                    for step in path {
+                    'step: for step in path {
                         let step: Coordinates = step.into();
-                        if let Ok((_, _, coordinates)) = next_exit.single() {
-                            if step.distance(&coordinates) <= 10. {
-                                continue;
+                        for (entity, _, coordinates) in next_exit.iter() {
+                            if step.distance(&coordinates) <= 5. {
+                                commands.entity(entity).remove::<NextExit>();
+                                continue 'step;
                             }
                         }
                         for (entity, _, coordinates) in exits.iter() {
-                            if step.distance(&coordinates) <= 10. {
-                                for (entity, _, _) in next_exit.iter() {
-                                    commands.entity(entity).remove::<NextExit>();
-                                }
+                            if step.distance(&coordinates) <= 5. {
                                 commands.entity(entity).insert(NextExit);
-                                return;
+                                break 'step;
                             }
                         }
                     }
-                    *recalculate = false;
                 }
                 NoPath => {
                     for (entity, _, _) in next_exit.iter() {
                         commands.entity(entity).remove::<NextExit>();
                     }
-                    *recalculate = false;
                 }
             }
         }
@@ -509,18 +504,19 @@ fn highlight_next_exit(
     if let Ok((_, coordinates)) = player.single() {
         if let Ok((areas, map)) = map.single() {
             if let Some(current_area) = areas.iter().find(|a| a.contains(coordinates)) {
+                let recalculate;
                 if let Some(cached_area) = &*cache {
                     if current_area == cached_area {
                         return;
                     } else {
                         *cache = Some(current_area.clone());
-                        *recalculate = true;
+                        recalculate = true;
                     }
                 } else {
                     *cache = Some(current_area.clone());
-                    *recalculate = true;
+                    recalculate = true;
                 }
-                if *recalculate {
+                if recalculate {
                     let coordinates_clone = coordinates.clone();
                     let map_clone = map.clone();
                     if let Some(sender) = sender.clone() {
@@ -554,7 +550,7 @@ fn next_exit_added(mut next_exit: Query<(&NextExit, &mut SoundIcon), Added<NextE
 fn next_exit_removed(removed: RemovedComponents<NextExit>, mut icons: Query<&mut SoundIcon>) {
     for entity in removed.iter() {
         if let Ok(mut icon) = icons.get_component_mut::<SoundIcon>(entity) {
-            icon.gain = 0.5;
+            icon.gain = 0.1;
             icon.pitch = 0.5;
         }
     }
