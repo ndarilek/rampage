@@ -332,7 +332,7 @@ fn load(
 
 fn spawn_map(mut commands: Commands) {
     let map = MapBuilder::new(137, 137)
-        .with(crate::map::GridBuilder::new(8, 8, 16, 16))
+        .with(crate::map::GridBuilder::new(5, 5, 16, 16))
         .with(mapgen::filter::AreaStartingPosition::new(
             mapgen::XStart::LEFT,
             mapgen::YStart::TOP,
@@ -410,7 +410,7 @@ fn spawn_ambience(
                     buffer: buffers.get_handle(*handle),
                     state: SoundState::Playing,
                     looping: true,
-                    gain: 0.2,
+                    gain: 0.15,
                     ..Default::default()
                 };
                 let x = (rng.gen_range(area.rect.x1..area.rect.x2)) as f32;
@@ -431,7 +431,7 @@ fn spawn_level_exit(mut commands: Commands, sfx: Res<Sfx>, map: Query<&Map, Adde
         if let Some(exit) = map.exit() {
             let sound = SoundIcon {
                 sound: sfx.level_exit,
-                gain: 1.,
+                gain: 2.,
                 ..Default::default()
             };
             commands
