@@ -11,6 +11,7 @@ use bevy_input_actionmap::{GamepadAxisDirection, InputMap};
 use bevy_openal::{efx, Buffer, Context, GlobalEffects, Listener, Sound, SoundState};
 use bevy_tts::Tts;
 use crossbeam_channel::{unbounded, Receiver, Sender};
+use derive_more::{Deref, DerefMut};
 use mapgen::{MapBuilder, TileType};
 use rand::prelude::*;
 
@@ -68,6 +69,9 @@ fn main() {
         .add_state(AppState::Loading)
         .init_resource::<AssetHandles>()
         .init_resource::<Sfx>()
+        .init_resource::<Level>()
+        .init_resource::<MapDimension>()
+        .init_resource::<RoomDimension>()
         .add_system(bevy::input::system::exit_on_esc_system.system())
         .add_startup_system(setup.system().chain(error_handler.system()))
         .add_system_set(
@@ -76,7 +80,7 @@ fn main() {
         )
         .add_system_set(
             SystemSet::on_enter(AppState::InGame)
-                .with_system(spawn_map.system())
+                .with_system(setup_level.system().chain(error_handler.system()))
                 .with_system(spawn_player.system()),
         )
         .add_system(
@@ -330,9 +334,32 @@ fn load(
     Ok(())
 }
 
-fn spawn_map(mut commands: Commands) {
+#[derive(Clone, Copy, Debug, Default, Deref, DerefMut)]
+struct Level(u32);
+
+#[derive(Clone, Copy, Debug, Default, Deref, DerefMut)]
+struct MapDimension(u32);
+
+#[derive(Clone, Copy, Debug, Default, Deref, DerefMut)]
+struct RoomDimension(u32);
+
+fn setup_level(
+    mut commands: Commands,
+    mut level: ResMut<Level>,
+    mut map_dimension: ResMut<MapDimension>,
+    mut room_dimension: ResMut<RoomDimension>,
+    mut tts: ResMut<Tts>,
+) -> Result<(), Box<dyn Error>> {
+    **level += 1;
+    **map_dimension = 5;
+    **room_dimension = 16;
     let map = MapBuilder::new(137, 137)
-        .with(crate::map::GridBuilder::new(5, 5, 16, 16))
+        .with(crate::map::GridBuilder::new(
+            **map_dimension,
+            **map_dimension,
+            **room_dimension,
+            **room_dimension,
+        ))
         .with(mapgen::filter::AreaStartingPosition::new(
             mapgen::XStart::LEFT,
             mapgen::YStart::TOP,
@@ -341,6 +368,8 @@ fn spawn_map(mut commands: Commands) {
         .build();
     let map = Map::new(map);
     commands.spawn().insert(map);
+    tts.speak(format!("Level {}.", **level), false)?;
+    Ok(())
 }
 
 fn spawn_player(mut commands: Commands, sfx: Res<Sfx>) {
