@@ -17,6 +17,7 @@ pub struct Footstep {
     pub sound: HandleId,
     pub step_length: f32,
     pub gain: f32,
+    pub pitch_variation: Option<f32>,
 }
 
 impl Default for Footstep {
@@ -25,6 +26,7 @@ impl Default for Footstep {
             sound: "".into(),
             step_length: 0.8,
             gain: 0.05,
+            pitch_variation: Some(0.15),
         }
     }
 }
@@ -87,6 +89,11 @@ fn footstep(
                     let sound = children[0];
                     if let Ok(mut sound) = sounds.get_mut(sound) {
                         sound.gain = footstep.gain;
+                        if let Some(pitch_variation) = footstep.pitch_variation {
+                            let mut pitch = 1. - pitch_variation / 2.;
+                            pitch += random::<f32>() * pitch_variation;
+                            sound.pitch = pitch;
+                        }
                         sound.play();
                     }
                 } else if last.1 != transform.translation {
