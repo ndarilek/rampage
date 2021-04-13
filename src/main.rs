@@ -426,18 +426,11 @@ fn spawn_ambience(
     }
 }
 
-fn spawn_level_exit(
-    mut commands: Commands,
-    sfx: Res<Sfx>,
-    buffers: Res<Assets<Buffer>>,
-    map: Query<&Map, Added<Map>>,
-) {
+fn spawn_level_exit(mut commands: Commands, sfx: Res<Sfx>, map: Query<&Map, Added<Map>>) {
     for map in map.iter() {
         if let Some(exit) = map.exit() {
-            let sound = Sound {
-                buffer: buffers.get_handle(sfx.level_exit),
-                state: SoundState::Playing,
-                looping: true,
+            let sound = SoundIcon {
+                sound: sfx.level_exit,
                 gain: 0.5,
                 ..Default::default()
             };
