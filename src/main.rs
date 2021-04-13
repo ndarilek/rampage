@@ -5,10 +5,12 @@ use std::{error::Error, f32::consts::PI};
 use bevy::{
     asset::{HandleId, LoadState},
     prelude::*,
+    tasks::AsyncComputeTaskPool,
 };
 use bevy_input_actionmap::{GamepadAxisDirection, InputMap};
 use bevy_openal::Listener;
 use bevy_tts::Tts;
+use crossbeam_channel::{unbounded, Receiver, Sender};
 use mapgen::{MapBuilder, TileType};
 
 #[macro_use]
@@ -445,6 +447,11 @@ struct NextExit;
 
 const HIGHLIGHT_NEXT_EXIT_LABEL: &str = "HIGHLIGHT_NEXT_EXIT";
 
+enum NextExitMsg {
+    Path(Vec<(i32, i32)>),
+    NoPath,
+}
+
 fn highlight_next_exit(
     mut commands: Commands,
     mut cache: Local<Option<Area>>,
@@ -452,44 +459,80 @@ fn highlight_next_exit(
     map: Query<(&Areas, &Map)>,
     exits: Query<(Entity, &Exit, &Coordinates)>,
     next_exit: Query<(Entity, &NextExit, &Coordinates)>,
+    pool: Res<AsyncComputeTaskPool>,
+    mut recalculate: Local<bool>,
+    mut sender: Local<Option<Sender<NextExitMsg>>>,
+    mut receiver: Local<Option<Receiver<NextExitMsg>>>,
 ) {
+    if sender.is_none() {
+        let (tx, rx) = unbounded();
+        *sender = Some(tx);
+        *receiver = Some(rx);
+    }
+    if let Some(receiver) = &*receiver {
+        if let Ok(msg) = receiver.try_recv() {
+            use NextExitMsg::*;
+            match msg {
+                Path(path) => {
+                    for step in path {
+                        let step: Coordinates = step.into();
+                        if let Ok((_, _, coordinates)) = next_exit.single() {
+                            if step.distance(&coordinates) <= 10. {
+                                continue;
+                            }
+                        }
+                        for (entity, _, coordinates) in exits.iter() {
+                            if step.distance(&coordinates) <= 10. {
+                                for (entity, _, _) in next_exit.iter() {
+                                    commands.entity(entity).remove::<NextExit>();
+                                }
+                                commands.entity(entity).insert(NextExit);
+                                return;
+                            }
+                        }
+                    }
+                    *recalculate = false;
+                }
+                NoPath => {
+                    for (entity, _, _) in next_exit.iter() {
+                        commands.entity(entity).remove::<NextExit>();
+                    }
+                    *recalculate = false;
+                }
+            }
+        }
+    }
     if let Ok((_, coordinates)) = player.single() {
         if let Ok((areas, map)) = map.single() {
             if let Some(current_area) = areas.iter().find(|a| a.contains(coordinates)) {
-                let recalculate;
                 if let Some(cached_area) = &*cache {
                     if current_area == cached_area {
                         return;
                     } else {
                         *cache = Some(current_area.clone());
-                        recalculate = true;
+                        *recalculate = true;
                     }
                 } else {
                     *cache = Some(current_area.clone());
-                    recalculate = true;
+                    *recalculate = true;
                 }
-                if recalculate {
-                    if let Some(destination) = map.exit() {
-                        if let Some(result) = find_path(coordinates, &destination, map) {
-                            let path = result.0;
-                            for step in path {
-                                let step: Coordinates = step.into();
-                                if let Ok((_, _, coordinates)) = next_exit.single() {
-                                    if step.distance(&coordinates) <= 10. {
-                                        continue;
-                                    }
-                                }
-                                for (entity, _, coordinates) in exits.iter() {
-                                    if step.distance(&coordinates) <= 10. {
-                                        for (entity, _, _) in next_exit.iter() {
-                                            commands.entity(entity).remove::<NextExit>();
-                                        }
-                                        commands.entity(entity).insert(NextExit);
-                                        return;
-                                    }
+                if *recalculate {
+                    let coordinates_clone = coordinates.clone();
+                    let map_clone = map.clone();
+                    if let Some(sender) = sender.clone() {
+                        pool.spawn(async move {
+                            if let Some(destination) = map_clone.exit() {
+                                if let Some(result) =
+                                    find_path(&coordinates_clone, &destination, &map_clone)
+                                {
+                                    let path = result.0;
+                                    sender.send(NextExitMsg::Path(path)).unwrap();
+                                } else {
+                                    sender.send(NextExitMsg::NoPath).unwrap();
                                 }
                             }
-                        }
+                        })
+                        .detach();
                     }
                 }
             }
