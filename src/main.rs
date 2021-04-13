@@ -76,13 +76,21 @@ fn main() {
                 .with_system(spawn_map.system())
                 .with_system(spawn_player.system()),
         )
-        .add_system(exit_post_processor.system())
+        .add_system(
+            exit_post_processor
+                .system()
+                .after(HIGHLIGHT_NEXT_EXIT_LABEL),
+        )
         .add_system(position_player_at_start.system())
         .add_system(speak_info.system().chain(error_handler.system()))
         .add_system(snap.system())
-        .add_system(highlight_next_exit.system())
+        .add_system(
+            highlight_next_exit
+                .system()
+                .label(HIGHLIGHT_NEXT_EXIT_LABEL),
+        )
         .add_system(next_exit_added.system())
-        .add_system(next_exit_removed.system())
+        .add_system_to_stage(CoreStage::PostUpdate, next_exit_removed.system())
         .run();
 }
 
@@ -343,7 +351,7 @@ fn exit_post_processor(
             });
             let x = coordinates.x_i32();
             let y = coordinates.y_i32();
-            let exit_half_width = 2;
+            let exit_half_width = 3;
             for x in (x - exit_half_width)..=(x + exit_half_width) {
                 for y in (y - exit_half_width)..=(y + exit_half_width) {
                     map.base.set_tile(x as usize, y as usize, TileType::Floor);
@@ -435,18 +443,20 @@ fn snap(input: Res<InputMap<String>>, mut transform: Query<(&Player, &mut Transf
 #[derive(Clone, Copy, Debug, Default)]
 struct NextExit;
 
+const HIGHLIGHT_NEXT_EXIT_LABEL: &str = "HIGHLIGHT_NEXT_EXIT";
+
 fn highlight_next_exit(
     mut commands: Commands,
     mut cache: Local<Option<Area>>,
     player: Query<(&Player, &Coordinates)>,
     map: Query<(&Areas, &Map)>,
     exits: Query<(Entity, &Exit, &Coordinates)>,
-    next_exit: Query<(Entity, &NextExit)>,
+    next_exit: Query<(Entity, &NextExit, &Coordinates)>,
 ) {
     if let Ok((_, coordinates)) = player.single() {
         if let Ok((areas, map)) = map.single() {
             if let Some(current_area) = areas.iter().find(|a| a.contains(coordinates)) {
-                let mut recalculate;
+                let recalculate;
                 if let Some(cached_area) = &*cache {
                     if current_area == cached_area {
                         return;
@@ -459,23 +469,23 @@ fn highlight_next_exit(
                     recalculate = true;
                 }
                 if recalculate {
-                    println!("Recalculating");
                     if let Some(destination) = map.exit() {
-                        println!("Calculating from {:?} to {:?}", coordinates, destination);
                         if let Some(result) = find_path(coordinates, &destination, map) {
-                            println!("Got a path");
                             let path = result.0;
                             for step in path {
-                                println!("Checking {:?}", step);
-                                for (entity, _, coordinates) in exits.iter() {
-                                    let step: Coordinates = step.into();
+                                let step: Coordinates = step.into();
+                                if let Ok((_, _, coordinates)) = next_exit.single() {
                                     if step.distance(&coordinates) <= 10. {
-                                        for (entity, _) in next_exit.iter() {
+                                        continue;
+                                    }
+                                }
+                                for (entity, _, coordinates) in exits.iter() {
+                                    if step.distance(&coordinates) <= 10. {
+                                        for (entity, _, _) in next_exit.iter() {
                                             commands.entity(entity).remove::<NextExit>();
                                         }
                                         commands.entity(entity).insert(NextExit);
-                                        println!("Breaking");
-                                        break;
+                                        return;
                                     }
                                 }
                             }
@@ -489,6 +499,7 @@ fn highlight_next_exit(
 
 fn next_exit_added(mut next_exit: Query<(&NextExit, &mut SoundIcon), Added<NextExit>>) {
     for (_, mut icon) in next_exit.iter_mut() {
+        icon.gain = 1.;
         icon.pitch = 1.;
     }
 }
@@ -496,6 +507,7 @@ fn next_exit_added(mut next_exit: Query<(&NextExit, &mut SoundIcon), Added<NextE
 fn next_exit_removed(removed: RemovedComponents<NextExit>, mut icons: Query<&mut SoundIcon>) {
     for entity in removed.iter() {
         if let Ok(mut icon) = icons.get_component_mut::<SoundIcon>(entity) {
+            icon.gain = 0.5;
             icon.pitch = 0.5;
         }
     }
