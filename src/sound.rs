@@ -172,12 +172,13 @@ fn sound_icon(
                                 .id();
                             commands.entity(entity).push_children(&[child]);
                             interval.reset();
-                        } else if let Some(children) = children {
-                            if let Some(child) = children.get(0) {
-                                if let Ok(mut sound) = sounds.get_mut(*child) {
-                                    sound.gain = icon.gain;
-                                    sound.pitch = icon.pitch;
-                                }
+                        }
+                    }
+                    if let Some(children) = children {
+                        if let Some(child) = children.get(0) {
+                            if let Ok(mut sound) = sounds.get_mut(*child) {
+                                sound.gain = icon.gain;
+                                sound.pitch = icon.pitch;
                             }
                         }
                     }
