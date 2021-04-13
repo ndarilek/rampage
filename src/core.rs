@@ -258,6 +258,16 @@ impl PointLike for &Coordinates {
     }
 }
 
+impl PointLike for mapgen::geometry::Point {
+    fn x(&self) -> f32 {
+        self.x as f32
+    }
+
+    fn y(&self) -> f32 {
+        self.y as f32
+    }
+}
+
 #[macro_export]
 macro_rules! impl_pointlike_for_tuple_component {
     ($source:ty) => {

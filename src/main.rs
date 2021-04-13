@@ -23,11 +23,12 @@ mod sound;
 mod visibility;
 
 use crate::{
-    core::{Angle, Coordinates, Player, PointLike},
+    core::{Angle, Area, Coordinates, Player, PointLike},
     error::error_handler,
     exploration::Mappable,
-    map::{Exit, Map, MapConfig},
+    map::{Areas, Exit, Map, MapConfig},
     navigation::{MaxSpeed, MotionBlocked, RotationSpeed, Speed, Velocity},
+    pathfinding::find_path,
     sound::{Footstep, FootstepBundle, SoundIcon},
     visibility::{BlocksVisibility, Viewshed, VisibilityBlocked},
 };
@@ -79,6 +80,9 @@ fn main() {
         .add_system(position_player_at_start.system())
         .add_system(speak_info.system().chain(error_handler.system()))
         .add_system(snap.system())
+        .add_system(highlight_next_exit.system())
+        .add_system(next_exit_added.system())
+        .add_system(next_exit_removed.system())
         .run();
 }
 
@@ -301,7 +305,7 @@ fn spawn_map(mut commands: Commands) {
             mapgen::XStart::LEFT,
             mapgen::YStart::TOP,
         ))
-        //.with(mapgen::filter::DistantExit::new())
+        .with(mapgen::filter::DistantExit::new())
         .build();
     let map = Map::new(map);
     commands.spawn().insert(map);
@@ -335,7 +339,7 @@ fn exit_post_processor(
                 sound: sfx.exit,
                 gain: 0.5,
                 interval: None,
-                ..Default::default()
+                pitch: 0.5,
             });
             let x = coordinates.x_i32();
             let y = coordinates.y_i32();
@@ -396,7 +400,7 @@ fn snap(input: Res<InputMap<String>>, mut transform: Query<(&Player, &mut Transf
         for (_, mut transform) in transform.iter_mut() {
             let forward = transform.local_x();
             let yaw = forward.y.atan2(forward.x);
-            if yaw >= 0. && yaw < PI / 2. {
+            if (0. ..PI / 2.).contains(&yaw) {
                 transform.rotation = Quat::from_rotation_z(PI / 2.);
             } else if yaw >= PI / 2. && yaw < PI {
                 transform.rotation = Quat::from_rotation_z(PI);
@@ -424,6 +428,75 @@ fn snap(input: Res<InputMap<String>>, mut transform: Query<(&Player, &mut Transf
             } else {
                 transform.rotation = Quat::from_rotation_z(-PI / 2.);
             }
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+struct NextExit;
+
+fn highlight_next_exit(
+    mut commands: Commands,
+    mut cache: Local<Option<Area>>,
+    player: Query<(&Player, &Coordinates)>,
+    map: Query<(&Areas, &Map)>,
+    exits: Query<(Entity, &Exit, &Coordinates)>,
+    next_exit: Query<(Entity, &NextExit)>,
+) {
+    if let Ok((_, coordinates)) = player.single() {
+        if let Ok((areas, map)) = map.single() {
+            if let Some(current_area) = areas.iter().find(|a| a.contains(coordinates)) {
+                let mut recalculate;
+                if let Some(cached_area) = &*cache {
+                    if current_area == cached_area {
+                        return;
+                    } else {
+                        *cache = Some(current_area.clone());
+                        recalculate = true;
+                    }
+                } else {
+                    *cache = Some(current_area.clone());
+                    recalculate = true;
+                }
+                if recalculate {
+                    println!("Recalculating");
+                    if let Some(destination) = map.exit() {
+                        println!("Calculating from {:?} to {:?}", coordinates, destination);
+                        if let Some(result) = find_path(coordinates, &destination, map) {
+                            println!("Got a path");
+                            let path = result.0;
+                            for step in path {
+                                println!("Checking {:?}", step);
+                                for (entity, _, coordinates) in exits.iter() {
+                                    let step: Coordinates = step.into();
+                                    if step.distance(&coordinates) <= 10. {
+                                        for (entity, _) in next_exit.iter() {
+                                            commands.entity(entity).remove::<NextExit>();
+                                        }
+                                        commands.entity(entity).insert(NextExit);
+                                        println!("Breaking");
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn next_exit_added(mut next_exit: Query<(&NextExit, &mut SoundIcon), Added<NextExit>>) {
+    for (_, mut icon) in next_exit.iter_mut() {
+        icon.pitch = 1.;
+    }
+}
+
+fn next_exit_removed(removed: RemovedComponents<NextExit>, mut icons: Query<&mut SoundIcon>) {
+    for entity in removed.iter() {
+        if let Ok(mut icon) = icons.get_component_mut::<SoundIcon>(entity) {
+            icon.pitch = 0.5;
         }
     }
 }

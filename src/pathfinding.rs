@@ -21,7 +21,7 @@ impl_pointlike_for_tuple_component!(Destination);
 #[reflect(Component)]
 pub struct Path(pub Vec<(i32, i32)>);
 
-fn find_path(
+pub fn find_path(
     start: &dyn PointLike,
     destination: &dyn PointLike,
     map: &Map,
