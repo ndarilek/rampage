@@ -19,6 +19,12 @@ impl From<(i32, i32)> for Coordinates {
     }
 }
 
+impl From<(u32, u32)> for Coordinates {
+    fn from(v: (u32, u32)) -> Self {
+        Coordinates((v.0 as f32, v.1 as f32))
+    }
+}
+
 impl From<(usize, usize)> for Coordinates {
     fn from(v: (usize, usize)) -> Self {
         Coordinates((v.0 as f32, v.1 as f32))
@@ -36,6 +42,11 @@ impl Area {
         let x = point.x() as usize;
         let y = point.y() as usize;
         x >= self.rect.x1 && x <= self.rect.x2 && y >= self.rect.y1 && y <= self.rect.y2
+    }
+
+    pub fn center(&self) -> (usize, usize) {
+        let center = self.rect.center();
+        (center.x, center.y)
     }
 }
 

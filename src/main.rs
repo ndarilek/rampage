@@ -369,13 +369,17 @@ fn exit_post_processor(
 
 fn position_player_at_start(
     mut player: Query<(&Player, &mut Coordinates, &mut Transform)>,
-    map: Query<&Map, Added<Map>>,
+    map: Query<(&Map, &Areas), Added<Areas>>,
 ) {
-    if let Ok(map) = map.single() {
+    if let Ok((map, areas)) = map.single() {
         if let Some(start) = map.start() {
             if let Ok((_, mut coordinates, mut transform)) = player.single_mut() {
-                *coordinates = start.into();
-                //transform.rotation = Quat::from_rotation_z(PI / 2.);
+                for area in areas.iter() {
+                    if area.contains(&start) {
+                        *coordinates = area.center().into();
+                        transform.rotation = Quat::from_rotation_z(PI / 2.);
+                    }
+                }
             }
         }
     }
