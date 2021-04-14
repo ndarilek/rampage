@@ -97,8 +97,11 @@ fn main() {
         .add_system(spawn_ambience.system())
         .add_system(spawn_level_exit.system())
         .add_system(position_player_at_start.system())
-        .add_system(speak_info.system().chain(error_handler.system()))
-        .add_system(snap.system())
+        .add_system_set(
+            SystemSet::on_update(AppState::InGame)
+                .with_system(speak_info.system().chain(error_handler.system()))
+                .with_system(snap.system()),
+        )
         .add_system(
             highlight_next_exit
                 .system()
@@ -708,6 +711,7 @@ fn checkpoint(
 }
 
 fn life_loss(
+    mut state: ResMut<State<AppState>>,
     mut tts: ResMut<Tts>,
     mut player: Query<(&Player, &Lives, &Checkpoint, &mut Coordinates), Changed<Lives>>,
 ) -> Result<(), Box<dyn Error>> {
@@ -716,6 +720,7 @@ fn life_loss(
             return Ok(());
         }
         if **lives == 0 {
+            state.overwrite_replace(AppState::GameOver)?;
             tts.speak("Game over.", true)?;
         } else {
             let life_or_lives = if **lives > 1 { "lives" } else { "life" };
