@@ -32,7 +32,8 @@ use crate::{
     exploration::Mappable,
     map::{Areas, Exit, Map, MapBundle, MapConfig},
     navigation::{
-        Collision, MaxSpeed, MotionBlocked, NavigationConfig, RotationSpeed, Speed, Velocity,
+        Collision, MaxSpeed, MonitorsCollisions, MotionBlocked, NavigationConfig, RotationSpeed,
+        Speed, Velocity,
     },
     pathfinding::find_path,
     sound::{Footstep, FootstepBundle, SoundIcon},
@@ -86,6 +87,7 @@ fn main() {
                 .with_system(load.system().chain(error_handler.system())),
         )
         .add_system_set(SystemSet::on_exit(AppState::Loading).with_system(spawn_player.system()))
+        .add_system_set(SystemSet::on_exit(AppState::GameOver).with_system(spawn_player.system()))
         .add_system_set(
             SystemSet::on_enter(AppState::InGame)
                 .with_system(send_new_game_event.system())
@@ -102,7 +104,8 @@ fn main() {
         .add_system_set(
             SystemSet::on_update(AppState::InGame)
                 .with_system(speak_info.system().chain(error_handler.system()))
-                .with_system(snap.system()),
+                .with_system(snap.system())
+                .with_system(level_up.system().chain(error_handler.system())),
         )
         .add_system(
             highlight_next_exit
@@ -124,7 +127,18 @@ fn main() {
                     .chain(error_handler.system()),
             ),
         )
-        .add_system_to_stage(CoreStage::PostUpdate, collision.system())
+        .add_system_to_stage(
+            CoreStage::PostUpdate,
+            collision.system().chain(error_handler.system()),
+        )
+        .add_system_set(
+            SystemSet::on_enter(AppState::LevelUp)
+                .with_system(level_up_enter.system().chain(error_handler.system())),
+        )
+        .add_system_set(
+            SystemSet::on_update(AppState::LevelUp)
+                .with_system(level_up_update.system().chain(error_handler.system())),
+        )
         .add_system_set(
             SystemSet::on_enter(AppState::GameOver)
                 .with_system(game_over_enter.system().chain(error_handler.system())),
@@ -140,6 +154,7 @@ fn main() {
 enum AppState {
     Loading,
     InGame,
+    LevelUp,
     BetweenLives,
     GameOver,
 }
@@ -476,7 +491,7 @@ fn exit_post_processor(
             });
             let x = coordinates.x_i32();
             let y = coordinates.y_i32();
-            let exit_half_width = 3;
+            let exit_half_width = 4;
             for x in (x - exit_half_width)..=(x + exit_half_width) {
                 for y in (y - exit_half_width)..=(y + exit_half_width) {
                     map.base.set_tile(x as usize, y as usize, TileType::Floor);
@@ -529,20 +544,35 @@ fn spawn_ambience(
     }
 }
 
-fn spawn_level_exit(mut commands: Commands, sfx: Res<Sfx>, map: Query<&Map, Added<Map>>) {
-    for map in map.iter() {
+#[derive(Clone, Copy, Debug, Default)]
+struct LevelExit;
+
+fn spawn_level_exit(
+    mut commands: Commands,
+    sfx: Res<Sfx>,
+    map: Query<(Entity, &Map, &Areas), Added<Areas>>,
+) {
+    for (entity, map, areas) in map.iter() {
         if let Some(exit) = map.exit() {
-            let sound = SoundIcon {
-                sound: sfx.level_exit,
-                gain: 2.,
-                ..Default::default()
-            };
-            commands
-                .spawn()
-                .insert(sound)
-                .insert(Coordinates((exit.x as f32, exit.y as f32)))
-                .insert(Transform::default());
-            println!("{:?}", exit);
+            if let Some(exit_area) = areas.iter().find(|a| a.contains(&exit)) {
+                let sound = SoundIcon {
+                    sound: sfx.level_exit,
+                    gain: 2.,
+                    ..Default::default()
+                };
+                let center = exit_area.center();
+                let center = (center.0 as f32, center.1 as f32);
+                let exit_entity = commands
+                    .spawn()
+                    .insert(sound)
+                    .insert(Coordinates(center))
+                    .insert(Transform::default())
+                    .insert(MonitorsCollisions)
+                    .insert(LevelExit)
+                    .id();
+                commands.entity(entity).push_children(&[exit_entity]);
+                println!("{:?}", center);
+            }
         }
     }
 }
@@ -587,7 +617,7 @@ fn speak_info(
     }
     if input.just_active(SPEAK_HEALTH) {
         if let Ok((_, _, _, lives, _)) = player.single() {
-            let life_or_lives = if **lives > 1 { "lives" } else { "life" };
+            let life_or_lives = if **lives != 1 { "lives" } else { "life" };
             tts.speak(format!("{} {} left.", **lives, life_or_lives), true)?;
         }
     }
@@ -677,7 +707,7 @@ fn highlight_next_exit(
                     for step in path {
                         let step: Coordinates = step.into();
                         for (entity, _, coordinates) in exits.iter() {
-                            if step.distance(&coordinates) <= 3. {
+                            if step.distance(&coordinates) <= 4. {
                                 commands.entity(entity).insert(NextExit);
                                 return;
                             }
@@ -828,15 +858,65 @@ fn collision(
     mut collisions: EventReader<Collision>,
     mut player: Query<(Entity, &Player, &mut Lives)>,
     state: Res<State<AppState>>,
-) {
+) -> Result<(), Box<dyn Error>> {
     for event in collisions.iter() {
         for (player_entity, _, mut lives) in player.iter_mut() {
             let current_state = state.current();
-            if *current_state == AppState::InGame && event.entity == player_entity && **lives > 0 {
-                **lives -= 1;
+            if *current_state == AppState::InGame {
+                if event.entity == player_entity {
+                    if **lives > 0 {
+                        **lives -= 1;
+                    }
+                }
             }
         }
     }
+    Ok(())
+}
+
+fn level_up(
+    player: Query<(&Player, &Coordinates), Changed<Coordinates>>,
+    exit: Query<(&LevelExit, &Coordinates)>,
+    mut state: ResMut<State<AppState>>,
+) -> Result<(), Box<dyn Error>> {
+    for (_, player_coordinates) in player.iter() {
+        for (_, exit_coordinates) in exit.iter() {
+            if player_coordinates.distance(exit_coordinates) < 5. {
+                state.push(AppState::LevelUp)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn level_up_enter(mut tts: ResMut<Tts>, level: Query<&Level>) -> Result<(), Box<dyn Error>> {
+    for level in level.iter() {
+        tts.speak(
+            format!(
+                "Congratulations! Press Enter to continue to level {}.",
+                **level + 1
+            ),
+            true,
+        )?;
+    }
+    Ok(())
+}
+
+fn level_up_update(
+    mut commands: Commands,
+    input: Res<InputMap<String>>,
+    map: Query<(Entity, &Map)>,
+    mut events: EventWriter<Reset>,
+    mut state: ResMut<State<AppState>>,
+) -> Result<(), Box<dyn Error>> {
+    if input.just_active(CONTINUE) {
+        for (entity, _) in map.iter() {
+            commands.entity(entity).despawn_recursive();
+        }
+        events.send(Reset::NewLevel);
+        state.overwrite_replace(AppState::InGame)?;
+    }
+    Ok(())
 }
 
 fn game_over_enter(
@@ -852,11 +932,18 @@ fn game_over_enter(
 }
 
 fn game_over_update(
+    mut commands: Commands,
     input: Res<InputMap<String>>,
     mut state: ResMut<State<AppState>>,
+    player: Query<(Entity, &Player)>,
+    mut events: EventWriter<Reset>,
 ) -> Result<(), Box<dyn Error>> {
     if input.just_active(CONTINUE) {
+        for (entity, _) in player.iter() {
+            commands.entity(entity).despawn_recursive();
+        }
         state.overwrite_replace(AppState::InGame)?;
+        events.send(Reset::NewGame);
     }
     Ok(())
 }
