@@ -426,7 +426,8 @@ fn setup_level(
         **level += 1;
         let map_dimension = 5 + (**level / 2);
         let room_dimension = 16;
-        let map = MapBuilder::new(137, 137)
+        let tile_dimension = (map_dimension * (room_dimension * 2)) as usize;
+        let map = MapBuilder::new(tile_dimension, tile_dimension)
             .with(crate::map::GridBuilder::new(
                 map_dimension,
                 map_dimension,
