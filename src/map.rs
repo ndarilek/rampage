@@ -10,7 +10,6 @@ use crate::{
     core::{Area, Coordinates, Player, PointLike},
     exploration::{ExplorationType, Mappable},
     log::Log,
-    navigation::MonitorsCollisions,
 };
 
 impl From<mapgen::geometry::Point> for Coordinates {
@@ -99,7 +98,6 @@ impl Default for MapConfig {
 #[derive(Bundle)]
 pub struct ExitBundle {
     pub coordinates: Coordinates,
-    pub monitors_collisions: MonitorsCollisions,
     pub exit: Exit,
     pub exploration_type: ExplorationType,
     pub mappable: Mappable,
@@ -111,7 +109,6 @@ impl Default for ExitBundle {
     fn default() -> Self {
         Self {
             coordinates: Default::default(),
-            monitors_collisions: Default::default(),
             exit: Default::default(),
             exploration_type: ExplorationType::Exit,
             mappable: Default::default(),
