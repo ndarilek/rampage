@@ -78,6 +78,7 @@ fn main() {
         .init_resource::<Level>()
         .init_resource::<MapDimension>()
         .init_resource::<RoomDimension>()
+        .init_resource::<BetweenLivesTimer>()
         .add_system(bevy::input::system::exit_on_esc_system.system())
         .add_startup_system(setup.system().chain(error_handler.system()))
         .add_system_set(
@@ -111,6 +112,17 @@ fn main() {
         .add_system_to_stage(CoreStage::PostUpdate, next_exit_removed.system())
         .add_system(checkpoint.system())
         .add_system(life_loss.system().chain(error_handler.system()))
+        .add_system_set(
+            SystemSet::on_enter(AppState::BetweenLives)
+                .with_system(reset_between_lives_timer.system()),
+        )
+        .add_system_set(
+            SystemSet::on_update(AppState::BetweenLives).with_system(
+                tick_between_lives_timer
+                    .system()
+                    .chain(error_handler.system()),
+            ),
+        )
         .add_system_to_stage(CoreStage::PostUpdate, collision.system())
         .run();
 }
@@ -119,6 +131,7 @@ fn main() {
 enum AppState {
     Loading,
     InGame,
+    BetweenLives,
     GameOver,
 }
 
@@ -723,10 +736,41 @@ fn life_loss(
             state.overwrite_replace(AppState::GameOver)?;
             tts.speak("Game over.", true)?;
         } else {
+            tts.speak("Wall! Wall! You ran into a wall!", true)?;
+            state.push(AppState::BetweenLives)?;
+        }
+        **coordinates = ***checkpoint;
+    }
+    Ok(())
+}
+
+#[derive(Clone, Debug, Deref, DerefMut)]
+struct BetweenLivesTimer(Timer);
+
+impl Default for BetweenLivesTimer {
+    fn default() -> Self {
+        BetweenLivesTimer(Timer::from_seconds(5., false))
+    }
+}
+
+fn reset_between_lives_timer(mut timer: ResMut<BetweenLivesTimer>) {
+    timer.reset();
+}
+
+fn tick_between_lives_timer(
+    time: Res<Time>,
+    mut timer: ResMut<BetweenLivesTimer>,
+    mut tts: ResMut<Tts>,
+    mut state: ResMut<State<AppState>>,
+    lives: Query<(&Player, &Lives)>,
+) -> Result<(), Box<dyn Error>> {
+    timer.tick(time.delta());
+    if timer.finished() {
+        state.pop()?;
+        if let Ok((_, lives)) = lives.single() {
             let life_or_lives = if **lives > 1 { "lives" } else { "life" };
             tts.speak(format!("{} {} left.", **lives, life_or_lives), true)?;
         }
-        **coordinates = ***checkpoint;
     }
     Ok(())
 }
