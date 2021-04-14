@@ -726,9 +726,9 @@ fn checkpoint(
 fn life_loss(
     mut state: ResMut<State<AppState>>,
     mut tts: ResMut<Tts>,
-    mut player: Query<(&Player, &Lives, &Checkpoint, &mut Coordinates), Changed<Lives>>,
+    mut player: Query<(&Player, &Lives), Changed<Lives>>,
 ) -> Result<(), Box<dyn Error>> {
-    for (_, lives, checkpoint, mut coordinates) in player.iter_mut() {
+    for (_, lives) in player.iter_mut() {
         if **lives == 3 {
             return Ok(());
         }
@@ -739,7 +739,6 @@ fn life_loss(
             tts.speak("Wall! Wall! You ran into a wall!", true)?;
             state.push(AppState::BetweenLives)?;
         }
-        **coordinates = ***checkpoint;
     }
     Ok(())
 }
@@ -762,14 +761,15 @@ fn tick_between_lives_timer(
     mut timer: ResMut<BetweenLivesTimer>,
     mut tts: ResMut<Tts>,
     mut state: ResMut<State<AppState>>,
-    lives: Query<(&Player, &Lives)>,
+    mut player: Query<(&Player, &Lives, &Checkpoint, &mut Coordinates)>,
 ) -> Result<(), Box<dyn Error>> {
     timer.tick(time.delta());
     if timer.finished() {
         state.pop()?;
-        if let Ok((_, lives)) = lives.single() {
+        if let Ok((_, lives, checkpoint, mut coordinates)) = player.single_mut() {
             let life_or_lives = if **lives > 1 { "lives" } else { "life" };
             tts.speak(format!("{} {} left.", **lives, life_or_lives), true)?;
+            **coordinates = ***checkpoint;
         }
     }
     Ok(())
