@@ -100,6 +100,7 @@ fn main() {
         )
         .add_system(next_exit_added.system())
         .add_system_to_stage(CoreStage::PostUpdate, next_exit_removed.system())
+        .add_system(checkpoint.system())
         .run();
 }
 
@@ -142,6 +143,18 @@ impl Default for Sfx {
     }
 }
 
+#[derive(Clone, Copy, Debug, Deref, DerefMut)]
+struct Lives(u32);
+
+impl Default for Lives {
+    fn default() -> Self {
+        Lives(3)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deref, DerefMut)]
+struct Checkpoint(Coordinates);
+
 #[derive(Bundle)]
 struct PlayerBundle {
     player: Player,
@@ -157,6 +170,8 @@ struct PlayerBundle {
     mappable: Mappable,
     viewshed: Viewshed,
     blocks_visibility: BlocksVisibility,
+    lives: Lives,
+    checkpoint: Checkpoint,
 }
 
 impl Default for PlayerBundle {
@@ -178,6 +193,8 @@ impl Default for PlayerBundle {
                 ..Default::default()
             },
             blocks_visibility: Default::default(),
+            lives: Default::default(),
+            checkpoint: Default::default(),
         }
     }
 }
@@ -653,6 +670,31 @@ fn next_exit_removed(removed: RemovedComponents<NextExit>, mut icons: Query<&mut
         if let Ok(mut icon) = icons.get_component_mut::<SoundIcon>(entity) {
             icon.gain = 0.1;
             icon.pitch = 0.5;
+        }
+    }
+}
+
+fn checkpoint(
+    mut player: Query<(&Player, &Coordinates, &mut Checkpoint)>,
+    mut cache: Local<Option<Area>>,
+    areas: Query<&Areas>,
+) {
+    if let Ok((_, coordinates, mut checkpoint)) = player.single_mut() {
+        let areas = areas.single().unwrap();
+        if let Some(cached_area) = &*cache {
+            if checkpoint.distance(&coordinates) > 5. {
+                if let Some(current_area) = areas.iter().find(|a| a.contains(coordinates)) {
+                    if cached_area != current_area {
+                        *cache = Some(current_area.clone());
+                        **checkpoint = *coordinates;
+                    }
+                }
+            }
+        } else {
+            if let Some(current_area) = areas.iter().find(|a| a.contains(coordinates)) {
+                *cache = Some(current_area.clone());
+                **checkpoint = *coordinates;
+            }
         }
     }
 }
