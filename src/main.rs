@@ -75,7 +75,6 @@ fn main() {
         .add_state(AppState::Loading)
         .init_resource::<AssetHandles>()
         .init_resource::<Sfx>()
-        .init_resource::<Level>()
         .init_resource::<MapDimension>()
         .init_resource::<RoomDimension>()
         .init_resource::<BetweenLivesTimer>()
@@ -85,10 +84,10 @@ fn main() {
             SystemSet::on_update(AppState::Loading)
                 .with_system(load.system().chain(error_handler.system())),
         )
+        .add_system_set(SystemSet::on_exit(AppState::Loading).with_system(spawn_player.system()))
         .add_system_set(
             SystemSet::on_enter(AppState::InGame)
-                .with_system(setup_level.system().chain(error_handler.system()))
-                .with_system(spawn_player.system()),
+                .with_system(setup_level.system().chain(error_handler.system())),
         )
         .add_system(
             exit_post_processor
@@ -196,6 +195,7 @@ struct PlayerBundle {
     blocks_visibility: BlocksVisibility,
     lives: Lives,
     checkpoint: Checkpoint,
+    level: Level,
 }
 
 impl Default for PlayerBundle {
@@ -219,6 +219,7 @@ impl Default for PlayerBundle {
             blocks_visibility: Default::default(),
             lives: Default::default(),
             checkpoint: Default::default(),
+            level: Default::default(),
         }
     }
 }
@@ -390,30 +391,33 @@ struct RoomDimension(u32);
 
 fn setup_level(
     mut commands: Commands,
-    mut level: ResMut<Level>,
+    mut level: Query<&mut Level>,
     mut map_dimension: ResMut<MapDimension>,
     mut room_dimension: ResMut<RoomDimension>,
     mut tts: ResMut<Tts>,
 ) -> Result<(), Box<dyn Error>> {
-    **level += 1;
-    **map_dimension = 5;
-    **room_dimension = 16;
-    let map = MapBuilder::new(137, 137)
-        .with(crate::map::GridBuilder::new(
-            **map_dimension,
-            **map_dimension,
-            **room_dimension,
-            **room_dimension,
-        ))
-        .with(mapgen::filter::AreaStartingPosition::new(
-            mapgen::XStart::LEFT,
-            mapgen::YStart::TOP,
-        ))
-        .with(mapgen::filter::DistantExit::new())
-        .build();
-    let map = Map::new(map);
-    commands.spawn().insert(map).insert(Children::default());
-    tts.speak(format!("Level {}.", **level), false)?;
+    if let Ok(mut level) = level.single_mut() {
+        println!("Setting up level");
+        **level += 1;
+        **map_dimension = 5;
+        **room_dimension = 16;
+        let map = MapBuilder::new(137, 137)
+            .with(crate::map::GridBuilder::new(
+                **map_dimension,
+                **map_dimension,
+                **room_dimension,
+                **room_dimension,
+            ))
+            .with(mapgen::filter::AreaStartingPosition::new(
+                mapgen::XStart::LEFT,
+                mapgen::YStart::TOP,
+            ))
+            .with(mapgen::filter::DistantExit::new())
+            .build();
+        let map = Map::new(map);
+        commands.spawn().insert(map).insert(Children::default());
+        tts.speak(format!("Level {}.", **level), false)?;
+    }
     Ok(())
 }
 
@@ -541,11 +545,10 @@ fn position_player_at_start(
 fn speak_info(
     input: Res<InputMap<String>>,
     mut tts: ResMut<Tts>,
-    player: Query<(&Player, &Coordinates, &Transform, &Lives)>,
-    level: Res<Level>,
+    player: Query<(&Player, &Coordinates, &Transform, &Lives, &Level)>,
 ) -> Result<(), Box<dyn Error>> {
     if input.just_active(SPEAK_COORDINATES) {
-        if let Ok((_, coordinates, _, _)) = player.single() {
+        if let Ok((_, coordinates, _, _, _)) = player.single() {
             tts.speak(
                 format!("({}, {})", coordinates.x_i32(), coordinates.y_i32()),
                 true,
@@ -553,20 +556,22 @@ fn speak_info(
         }
     }
     if input.just_active(SPEAK_DIRECTION) {
-        if let Ok((_, _, transform, _)) = player.single() {
+        if let Ok((_, _, transform, _, _)) = player.single() {
             let forward = transform.local_x();
             let yaw = Angle::Radians(forward.y.atan2(forward.x));
             tts.speak(format!("{} degrees", yaw.degrees_u32()), true)?;
         }
     }
     if input.just_active(SPEAK_HEALTH) {
-        if let Ok((_, _, _, lives)) = player.single() {
+        if let Ok((_, _, _, lives, _)) = player.single() {
             let life_or_lives = if **lives > 1 { "lives" } else { "life" };
             tts.speak(format!("{} {} left.", **lives, life_or_lives), true)?;
         }
     }
     if input.just_active(SPEAK_LEVEL) {
-        tts.speak(format!("Level {}", **level), true)?;
+        if let Ok((_, _, _, _, level)) = player.single() {
+            tts.speak(format!("Level {}", **level), true)?;
+        }
     }
     Ok(())
 }
@@ -719,19 +724,20 @@ fn checkpoint(
     areas: Query<&Areas>,
 ) {
     if let Ok((_, coordinates, mut checkpoint)) = player.single_mut() {
-        let areas = areas.single().unwrap();
-        if let Some(cached_area) = &*cache {
-            if checkpoint.distance(&coordinates) > 5. {
-                if let Some(current_area) = areas.iter().find(|a| a.contains(coordinates)) {
-                    if cached_area != current_area {
-                        *cache = Some(current_area.clone());
-                        **checkpoint = *coordinates;
+        if let Ok(areas) = areas.single() {
+            if let Some(cached_area) = &*cache {
+                if checkpoint.distance(&coordinates) > 5. {
+                    if let Some(current_area) = areas.iter().find(|a| a.contains(coordinates)) {
+                        if cached_area != current_area {
+                            *cache = Some(current_area.clone());
+                            **checkpoint = *coordinates;
+                        }
                     }
                 }
+            } else if let Some(current_area) = areas.iter().find(|a| a.contains(coordinates)) {
+                *cache = Some(current_area.clone());
+                **checkpoint = *coordinates;
             }
-        } else if let Some(current_area) = areas.iter().find(|a| a.contains(coordinates)) {
-            *cache = Some(current_area.clone());
-            **checkpoint = *coordinates;
         }
     }
 }
