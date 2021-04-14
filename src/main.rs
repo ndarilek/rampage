@@ -77,8 +77,6 @@ fn main() {
         .add_state(AppState::Loading)
         .init_resource::<AssetHandles>()
         .init_resource::<Sfx>()
-        .init_resource::<MapDimension>()
-        .init_resource::<RoomDimension>()
         .init_resource::<BetweenLivesTimer>()
         .add_system(bevy::input::system::exit_on_esc_system.system())
         .add_startup_system(setup.system().chain(error_handler.system()))
@@ -419,29 +417,21 @@ fn send_new_game_event(mut events: EventWriter<Reset>) {
 #[derive(Clone, Copy, Debug, Default, Deref, DerefMut)]
 struct Level(u32);
 
-#[derive(Clone, Copy, Debug, Default, Deref, DerefMut)]
-struct MapDimension(u32);
-
-#[derive(Clone, Copy, Debug, Default, Deref, DerefMut)]
-struct RoomDimension(u32);
-
 fn setup_level(
     mut commands: Commands,
     mut level: Query<&mut Level>,
-    mut map_dimension: ResMut<MapDimension>,
-    mut room_dimension: ResMut<RoomDimension>,
     mut tts: ResMut<Tts>,
 ) -> Result<(), Box<dyn Error>> {
     if let Ok(mut level) = level.single_mut() {
         **level += 1;
-        **map_dimension = 5;
-        **room_dimension = 16;
+        let map_dimension = 5 + (**level / 2);
+        let room_dimension = 16;
         let map = MapBuilder::new(137, 137)
             .with(crate::map::GridBuilder::new(
-                **map_dimension,
-                **map_dimension,
-                **room_dimension,
-                **room_dimension,
+                map_dimension,
+                map_dimension,
+                room_dimension,
+                room_dimension,
             ))
             .with(mapgen::filter::AreaStartingPosition::new(
                 mapgen::XStart::LEFT,
