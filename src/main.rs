@@ -384,7 +384,7 @@ fn setup_level(
         .with(mapgen::filter::DistantExit::new())
         .build();
     let map = Map::new(map);
-    commands.spawn().insert(map);
+    commands.spawn().insert(map).insert(Children::default());
     tts.speak(format!("Level {}.", **level), false)?;
     Ok(())
 }
@@ -439,9 +439,9 @@ fn spawn_ambience(
     mut commands: Commands,
     sfx: Res<Sfx>,
     buffers: Res<Assets<Buffer>>,
-    areas: Query<&Areas, Added<Areas>>,
+    map: Query<(Entity, &Map, &Areas), Added<Areas>>,
 ) {
-    if let Ok(areas) = areas.single() {
+    if let Ok((entity, _, areas)) = map.single() {
         let mut contains_ambience: Vec<Area> = vec![];
         let mut rng = thread_rng();
         for handle in &sfx.ambiences {
@@ -461,11 +461,13 @@ fn spawn_ambience(
                 };
                 let x = (rng.gen_range(area.rect.x1..area.rect.x2)) as f32;
                 let y = (rng.gen_range(area.rect.y1..area.rect.y2)) as f32;
-                commands
+                let ambience = commands
                     .spawn()
                     .insert(sound)
                     .insert(Coordinates((x, y)))
-                    .insert(Transform::default());
+                    .insert(Transform::default())
+                    .id();
+                commands.entity(entity).push_children(&[ambience]);
                 break;
             }
         }
