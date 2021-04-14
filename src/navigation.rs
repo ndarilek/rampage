@@ -1,4 +1,4 @@
-use std::{collections::HashMap, error::Error};
+use std::{collections::HashMap, error::Error, fmt::Debug, hash::Hash};
 
 use bevy::prelude::*;
 use bevy_input_actionmap::InputMap;
@@ -342,21 +342,47 @@ fn speak_direction(
 
 pub const MOVEMENT_LABEL: &str = "MOVEMENT";
 
-pub struct NavigationPlugin;
+#[derive(Clone, Debug)]
+pub struct NavigationConfig<S> {
+    pub movement_states: Vec<S>,
+    pub movement_control_states: Vec<S>,
+}
 
-impl Plugin for NavigationPlugin {
+impl<S> Default for NavigationConfig<S> {
+    fn default() -> Self {
+        Self {
+            movement_states: vec![],
+            movement_control_states: vec![],
+        }
+    }
+}
+
+pub struct NavigationPlugin<'a, S>(std::marker::PhantomData<&'a S>);
+
+impl<'a, S> Default for NavigationPlugin<'a, S> {
+    fn default() -> Self {
+        Self(std::marker::PhantomData)
+    }
+}
+
+impl<'a, S> Plugin for NavigationPlugin<'a, S>
+where
+    S: bevy::ecs::component::Component + Clone + Debug + Eq + Hash,
+    'a: 'static,
+{
     fn build(&self, app: &mut AppBuilder) {
+        if !app.world().contains_resource::<NavigationConfig<S>>() {
+            app.insert_resource(NavigationConfig::<S>::default());
+        }
+        let config = app
+            .world()
+            .get_resource::<NavigationConfig<S>>()
+            .unwrap()
+            .clone();
         app.register_type::<MaxSpeed>()
             .register_type::<RotationSpeed>()
             .register_type::<Sprinting>()
             .add_event::<Collision>()
-            .add_system(movement_controls.system().before(MOVEMENT_LABEL))
-            .add_system(
-                movement
-                    .system()
-                    .label(MOVEMENT_LABEL)
-                    .before(crate::map::UPDATE_ENTITY_INDEX_LABEL),
-            )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 remove_blocks_motion
@@ -379,5 +405,36 @@ impl Plugin for NavigationPlugin {
             .add_system(add_collision_indices.system())
             .add_system(speak_direction.system().chain(error_handler.system()))
             .add_system_to_stage(CoreStage::PostUpdate, add_collision_indices.system());
+        if config.movement_states.is_empty() {
+            app.add_system(
+                movement
+                    .system()
+                    .label(MOVEMENT_LABEL)
+                    .before(crate::map::UPDATE_ENTITY_INDEX_LABEL),
+            );
+        } else {
+            let states = config.movement_states;
+            for state in states {
+                app.add_system_set(
+                    SystemSet::on_update(state).with_system(
+                        movement
+                            .system()
+                            .label(MOVEMENT_LABEL)
+                            .before(crate::map::UPDATE_ENTITY_INDEX_LABEL),
+                    ),
+                );
+            }
+        }
+        if config.movement_control_states.is_empty() {
+            app.add_system(movement_controls.system().before(MOVEMENT_LABEL));
+        } else {
+            let states = config.movement_control_states;
+            for state in states {
+                app.add_system_set(
+                    SystemSet::on_update(state)
+                        .with_system(movement_controls.system().before(MOVEMENT_LABEL)),
+                );
+            }
+        }
     }
 }

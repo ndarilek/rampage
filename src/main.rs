@@ -31,7 +31,9 @@ use crate::{
     error::error_handler,
     exploration::Mappable,
     map::{Areas, Exit, Map, MapConfig},
-    navigation::{Collision, MaxSpeed, MotionBlocked, RotationSpeed, Speed, Velocity},
+    navigation::{
+        Collision, MaxSpeed, MotionBlocked, NavigationConfig, RotationSpeed, Speed, Velocity,
+    },
     pathfinding::find_path,
     sound::{Footstep, FootstepBundle, SoundIcon},
     visibility::{BlocksVisibility, Viewshed, VisibilityBlocked},
@@ -50,6 +52,10 @@ fn main() {
             // filter: "bevy_ecs=trace".into(),
             ..Default::default()
         })
+        .insert_resource(NavigationConfig {
+            movement_states: vec![AppState::InGame],
+            movement_control_states: vec![AppState::InGame],
+        })
         .add_plugins(DefaultPlugins)
         .add_plugin(bevy_input_actionmap::ActionPlugin::<String>::default())
         .add_plugin(bevy_openal::OpenAlPlugin)
@@ -62,7 +68,7 @@ fn main() {
             ..Default::default()
         })
         .add_plugin(map::MapPlugin)
-        .add_plugin(navigation::NavigationPlugin)
+        .add_plugin(navigation::NavigationPlugin::<AppState>::default())
         .add_plugin(pathfinding::PathfindingPlugin)
         .add_plugin(sound::SoundPlugin)
         .add_plugin(visibility::VisibilityPlugin)
@@ -694,11 +700,9 @@ fn checkpoint(
                     }
                 }
             }
-        } else {
-            if let Some(current_area) = areas.iter().find(|a| a.contains(coordinates)) {
-                *cache = Some(current_area.clone());
-                **checkpoint = *coordinates;
-            }
+        } else if let Some(current_area) = areas.iter().find(|a| a.contains(coordinates)) {
+            *cache = Some(current_area.clone());
+            **checkpoint = *coordinates;
         }
     }
 }
@@ -728,10 +732,8 @@ fn collision(
 ) {
     for event in collisions.iter() {
         for (player_entity, _, mut lives) in player.iter_mut() {
-            if event.entity == player_entity {
-                if **lives > 0 {
-                    **lives -= 1;
-                }
+            if event.entity == player_entity && **lives > 0 {
+                **lives -= 1;
             }
         }
     }
