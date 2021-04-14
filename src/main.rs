@@ -31,7 +31,7 @@ use crate::{
     error::error_handler,
     exploration::Mappable,
     map::{Areas, Exit, Map, MapConfig},
-    navigation::{MaxSpeed, MotionBlocked, RotationSpeed, Speed, Velocity},
+    navigation::{Collision, MaxSpeed, MotionBlocked, RotationSpeed, Speed, Velocity},
     pathfinding::find_path,
     sound::{Footstep, FootstepBundle, SoundIcon},
     visibility::{BlocksVisibility, Viewshed, VisibilityBlocked},
@@ -101,6 +101,8 @@ fn main() {
         .add_system(next_exit_added.system())
         .add_system_to_stage(CoreStage::PostUpdate, next_exit_removed.system())
         .add_system(checkpoint.system())
+        .add_system(life_loss.system().chain(error_handler.system()))
+        .add_system_to_stage(CoreStage::PostUpdate, collision.system())
         .run();
 }
 
@@ -696,6 +698,40 @@ fn checkpoint(
             if let Some(current_area) = areas.iter().find(|a| a.contains(coordinates)) {
                 *cache = Some(current_area.clone());
                 **checkpoint = *coordinates;
+            }
+        }
+    }
+}
+
+fn life_loss(
+    mut tts: ResMut<Tts>,
+    mut player: Query<(&Player, &Lives, &Checkpoint, &mut Coordinates), Changed<Lives>>,
+) -> Result<(), Box<dyn Error>> {
+    for (_, lives, checkpoint, mut coordinates) in player.iter_mut() {
+        if **lives == 3 {
+            return Ok(());
+        }
+        if **lives == 0 {
+            tts.speak("Game over.", true)?;
+        } else {
+            let life_or_lives = if **lives > 1 { "lives" } else { "life" };
+            tts.speak(format!("{} {} left.", **lives, life_or_lives), true)?;
+        }
+        **coordinates = ***checkpoint;
+    }
+    Ok(())
+}
+
+fn collision(
+    mut collisions: EventReader<Collision>,
+    mut player: Query<(Entity, &Player, &mut Lives)>,
+) {
+    for event in collisions.iter() {
+        for (player_entity, _, mut lives) in player.iter_mut() {
+            if event.entity == player_entity {
+                if **lives > 0 {
+                    **lives -= 1;
+                }
             }
         }
     }
