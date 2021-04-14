@@ -72,6 +72,7 @@ fn main() {
         .add_plugin(pathfinding::PathfindingPlugin)
         .add_plugin(sound::SoundPlugin)
         .add_plugin(visibility::VisibilityPlugin)
+        .add_event::<Reset>()
         .add_state(AppState::Loading)
         .init_resource::<AssetHandles>()
         .init_resource::<Sfx>()
@@ -87,6 +88,7 @@ fn main() {
         .add_system_set(SystemSet::on_exit(AppState::Loading).with_system(spawn_player.system()))
         .add_system_set(
             SystemSet::on_enter(AppState::InGame)
+                .with_system(send_new_game_event.system())
                 .with_system(setup_level.system().chain(error_handler.system())),
         )
         .add_system(
@@ -389,6 +391,16 @@ fn load(
     Ok(())
 }
 
+#[derive(Clone, Copy, Debug)]
+enum Reset {
+    NewGame,
+    NewLevel,
+}
+
+fn send_new_game_event(mut events: EventWriter<Reset>) {
+    events.send(Reset::NewGame);
+}
+
 #[derive(Clone, Copy, Debug, Default, Deref, DerefMut)]
 struct Level(u32);
 
@@ -637,6 +649,7 @@ enum NextExitMsg {
 fn highlight_next_exit(
     mut commands: Commands,
     mut cache: Local<Option<Area>>,
+    mut events: EventReader<Reset>,
     player: Query<(&Player, &Coordinates)>,
     map: Query<(&Areas, &Map)>,
     exits: Query<(Entity, &Exit, &Coordinates)>,
@@ -645,6 +658,9 @@ fn highlight_next_exit(
     mut sender: Local<Option<Sender<NextExitMsg>>>,
     mut receiver: Local<Option<Receiver<NextExitMsg>>>,
 ) {
+    for _ in events.iter() {
+        *cache = None;
+    }
     if sender.is_none() {
         let (tx, rx) = unbounded();
         *sender = Some(tx);
@@ -731,9 +747,13 @@ fn next_exit_removed(removed: RemovedComponents<NextExit>, mut icons: Query<&mut
 
 fn checkpoint(
     mut player: Query<(&Player, &Coordinates, &mut Checkpoint)>,
+    mut events: EventReader<Reset>,
     mut cache: Local<Option<Area>>,
     areas: Query<&Areas>,
 ) {
+    for _ in events.iter() {
+        *cache = None;
+    }
     if let Ok((_, coordinates, mut checkpoint)) = player.single_mut() {
         if let Ok(areas) = areas.single() {
             if let Some(cached_area) = &*cache {
