@@ -121,6 +121,14 @@ impl Default for ExitBundle {
     }
 }
 
+#[derive(Bundle, Clone, Default)]
+pub struct MapBundle {
+    pub map: Map,
+    pub children: Children,
+    pub transform: Transform,
+    pub global_transform: GlobalTransform,
+}
+
 pub struct GridBuilder {
     width_in_rooms: u32,
     height_in_rooms: u32,
@@ -193,8 +201,12 @@ impl MapFilter for GridBuilder {
     }
 }
 
-fn exit_spawner(mut commands: Commands, map: Query<&Map, Added<Map>>, config: Res<MapConfig>) {
-    for map in map.iter() {
+fn exit_spawner(
+    mut commands: Commands,
+    map: Query<(Entity, &Map), Added<Map>>,
+    config: Res<MapConfig>,
+) {
+    for (entity, map) in map.iter() {
         if config.autospawn_exits {
             let mut exits: Vec<(f32, f32)> = vec![];
             for x in 1..map.width() {
@@ -235,12 +247,16 @@ fn exit_spawner(mut commands: Commands, map: Query<&Map, Added<Map>>, config: Re
             for exit in exits {
                 let x = exit.0 as f32;
                 let y = exit.1 as f32;
-                commands.spawn().insert_bundle(ExitBundle {
-                    coordinates: Coordinates((x, y)),
-                    exit: Default::default(),
-                    transform: Transform::from_translation(Vec3::new(x, y, 0.)),
-                    ..Default::default()
-                });
+                let exit = commands
+                    .spawn()
+                    .insert_bundle(ExitBundle {
+                        coordinates: Coordinates((x, y)),
+                        exit: Default::default(),
+                        transform: Transform::from_translation(Vec3::new(x, y, 0.)),
+                        ..Default::default()
+                    })
+                    .id();
+                commands.entity(entity).push_children(&[exit]);
             }
         }
     }

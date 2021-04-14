@@ -30,7 +30,7 @@ use crate::{
     core::{Angle, Area, Coordinates, Player, PointLike},
     error::error_handler,
     exploration::Mappable,
-    map::{Areas, Exit, Map, MapConfig},
+    map::{Areas, Exit, Map, MapBundle, MapConfig},
     navigation::{
         Collision, MaxSpeed, MotionBlocked, NavigationConfig, RotationSpeed, Speed, Velocity,
     },
@@ -397,7 +397,6 @@ fn setup_level(
     mut tts: ResMut<Tts>,
 ) -> Result<(), Box<dyn Error>> {
     if let Ok(mut level) = level.single_mut() {
-        println!("Setting up level");
         **level += 1;
         **map_dimension = 5;
         **room_dimension = 16;
@@ -415,7 +414,10 @@ fn setup_level(
             .with(mapgen::filter::DistantExit::new())
             .build();
         let map = Map::new(map);
-        commands.spawn().insert(map).insert(Children::default());
+        commands.spawn().insert_bundle(MapBundle {
+            map,
+            ..Default::default()
+        });
         tts.speak(format!("Level {}.", **level), false)?;
     }
     Ok(())
