@@ -361,7 +361,6 @@ fn setup(
             GamepadAxisDirection::RightStickXPositive,
             0.5,
         )
-        .bind(exploration::ACTION_NAVIGATE_TO_EXPLORED, KeyCode::Return)
         .bind(
             exploration::ACTION_NAVIGATE_TO_EXPLORED,
             GamepadButtonType::RightThumb,
@@ -837,7 +836,6 @@ fn game_over_update(
     mut state: ResMut<State<AppState>>,
 ) -> Result<(), Box<dyn Error>> {
     if input.just_active(CONTINUE) {
-        println!("Got it");
         state.overwrite_replace(AppState::InGame)?;
     }
     Ok(())
