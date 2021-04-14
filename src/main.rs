@@ -224,7 +224,9 @@ impl Default for PlayerBundle {
 }
 
 const SPEAK_COORDINATES: &str = "SPEAK_COORDINATES";
-const SPEAK_HEADING: &str = "SPEAK_HEADING";
+const SPEAK_DIRECTION: &str = "SPEAK_DIRECTION";
+const SPEAK_HEALTH: &str = "SPEAK_HEALTH";
+const SPEAK_LEVEL: &str = "SPEAK_LEVEL";
 const SNAP_LEFT: &str = "SNAP_LEFT";
 const SNAP_RIGHT: &str = "SNAP_RIGHT";
 
@@ -294,7 +296,9 @@ fn setup(
             0.5,
         )
         .bind(SPEAK_COORDINATES, KeyCode::C)
-        .bind(SPEAK_HEADING, KeyCode::H)
+        .bind(SPEAK_DIRECTION, KeyCode::D)
+        .bind(SPEAK_HEALTH, KeyCode::H)
+        .bind(SPEAK_LEVEL, KeyCode::L)
         .bind(
             exploration::ACTION_EXPLORE_FORWARD,
             vec![KeyCode::LAlt, KeyCode::Up],
@@ -537,23 +541,32 @@ fn position_player_at_start(
 fn speak_info(
     input: Res<InputMap<String>>,
     mut tts: ResMut<Tts>,
-    player: Query<(&Player, &Coordinates, &Transform)>,
+    player: Query<(&Player, &Coordinates, &Transform, &Lives)>,
+    level: Res<Level>,
 ) -> Result<(), Box<dyn Error>> {
     if input.just_active(SPEAK_COORDINATES) {
-        if let Ok((_, coordinates, _)) = player.single() {
+        if let Ok((_, coordinates, _, _)) = player.single() {
             tts.speak(
                 format!("({}, {})", coordinates.x_i32(), coordinates.y_i32()),
                 true,
             )?;
         }
     }
-    if input.just_active(SPEAK_HEADING) {
-        if input.just_active(SNAP_RIGHT) {}
-        if let Ok((_, _, transform)) = player.single() {
+    if input.just_active(SPEAK_DIRECTION) {
+        if let Ok((_, _, transform, _)) = player.single() {
             let forward = transform.local_x();
             let yaw = Angle::Radians(forward.y.atan2(forward.x));
             tts.speak(format!("{} degrees", yaw.degrees_u32()), true)?;
         }
+    }
+    if input.just_active(SPEAK_HEALTH) {
+        if let Ok((_, _, _, lives)) = player.single() {
+            let life_or_lives = if **lives > 1 { "lives" } else { "life" };
+            tts.speak(format!("{} {} left.", **lives, life_or_lives), true)?;
+        }
+    }
+    if input.just_active(SPEAK_LEVEL) {
+        tts.speak(format!("Level {}", **level), true)?;
     }
     Ok(())
 }
