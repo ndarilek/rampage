@@ -123,6 +123,14 @@ fn main() {
             ),
         )
         .add_system_to_stage(CoreStage::PostUpdate, collision.system())
+        .add_system_set(
+            SystemSet::on_enter(AppState::GameOver)
+                .with_system(game_over_enter.system().chain(error_handler.system())),
+        )
+        .add_system_set(
+            SystemSet::on_update(AppState::GameOver)
+                .with_system(game_over_update.system().chain(error_handler.system())),
+        )
         .run();
 }
 
@@ -230,6 +238,7 @@ const SPEAK_HEALTH: &str = "SPEAK_HEALTH";
 const SPEAK_LEVEL: &str = "SPEAK_LEVEL";
 const SNAP_LEFT: &str = "SNAP_LEFT";
 const SNAP_RIGHT: &str = "SNAP_RIGHT";
+const CONTINUE: &str = "CONTINUE";
 
 fn setup(
     asset_server: Res<AssetServer>,
@@ -360,7 +369,8 @@ fn setup(
         .bind(SNAP_LEFT, vec![KeyCode::LControl, KeyCode::Left])
         .bind(SNAP_LEFT, vec![KeyCode::RControl, KeyCode::Left])
         .bind(SNAP_RIGHT, vec![KeyCode::LControl, KeyCode::Right])
-        .bind(SNAP_RIGHT, vec![KeyCode::RControl, KeyCode::Right]);
+        .bind(SNAP_RIGHT, vec![KeyCode::RControl, KeyCode::Right])
+        .bind(CONTINUE, KeyCode::Return);
     Ok(())
 }
 
@@ -753,13 +763,8 @@ fn life_loss(
         if **lives == 3 {
             return Ok(());
         }
-        if **lives == 0 {
-            state.overwrite_replace(AppState::GameOver)?;
-            tts.speak("Game over.", true)?;
-        } else {
-            tts.speak("Wall! Wall! You ran into a wall!", true)?;
-            state.push(AppState::BetweenLives)?;
-        }
+        tts.speak("Wall! Wall! You ran into a wall!", true)?;
+        state.push(AppState::BetweenLives)?;
     }
     Ok(())
 }
@@ -788,9 +793,13 @@ fn tick_between_lives_timer(
     if timer.finished() {
         state.pop()?;
         if let Ok((_, lives, checkpoint, mut coordinates)) = player.single_mut() {
-            let life_or_lives = if **lives > 1 { "lives" } else { "life" };
-            tts.speak(format!("{} {} left.", **lives, life_or_lives), true)?;
-            **coordinates = ***checkpoint;
+            if **lives == 0 {
+                state.overwrite_replace(AppState::GameOver)?;
+            } else {
+                let life_or_lives = if **lives > 1 { "lives" } else { "life" };
+                tts.speak(format!("{} {} left.", **lives, life_or_lives), true)?;
+                **coordinates = ***checkpoint;
+            }
         }
     }
     Ok(())
@@ -799,12 +808,37 @@ fn tick_between_lives_timer(
 fn collision(
     mut collisions: EventReader<Collision>,
     mut player: Query<(Entity, &Player, &mut Lives)>,
+    state: Res<State<AppState>>,
 ) {
     for event in collisions.iter() {
         for (player_entity, _, mut lives) in player.iter_mut() {
-            if event.entity == player_entity && **lives > 0 {
+            let current_state = state.current();
+            if *current_state == AppState::InGame && event.entity == player_entity && **lives > 0 {
                 **lives -= 1;
             }
         }
     }
+}
+
+fn game_over_enter(
+    mut commands: Commands,
+    mut tts: ResMut<Tts>,
+    map: Query<(Entity, &Map)>,
+) -> Result<(), Box<dyn Error>> {
+    for (entity, _) in map.iter() {
+        commands.entity(entity).despawn_recursive();
+    }
+    tts.speak("Game over. Press Enter to play again.", true)?;
+    Ok(())
+}
+
+fn game_over_update(
+    input: Res<InputMap<String>>,
+    mut state: ResMut<State<AppState>>,
+) -> Result<(), Box<dyn Error>> {
+    if input.just_active(CONTINUE) {
+        println!("Got it");
+        state.overwrite_replace(AppState::InGame)?;
+    }
+    Ok(())
 }
