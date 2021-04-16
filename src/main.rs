@@ -32,8 +32,8 @@ use crate::{
     exploration::Mappable,
     map::{Areas, Exit, Map, MapBundle, MapConfig},
     navigation::{
-        Collision, MaxSpeed, MonitorsCollisions, MotionBlocked, NavigationConfig, RotationSpeed,
-        Speed, Velocity,
+        BlocksMotion, Collision, MaxSpeed, MonitorsCollisions, MotionBlocked, NavigationConfig,
+        RotationSpeed, Speed, Velocity,
     },
     pathfinding::find_path,
     sound::{Footstep, FootstepBundle, SoundIcon},
@@ -96,6 +96,7 @@ fn main() {
                 .system()
                 .after(HIGHLIGHT_NEXT_EXIT_LABEL),
         )
+        .add_system(spawn_robots.system())
         .add_system(spawn_ambience.system())
         .add_system(spawn_level_exit.system())
         .add_system(position_player_at_start.system())
@@ -169,6 +170,8 @@ struct Sfx {
     exit: HandleId,
     level_exit: HandleId,
     player_footstep: HandleId,
+    robot1: HandleId,
+    robot2: HandleId,
 }
 
 impl Default for Sfx {
@@ -185,6 +188,8 @@ impl Default for Sfx {
             exit: "sfx/exit.wav".into(),
             level_exit: "sfx/level_exit.flac".into(),
             player_footstep: "sfx/player_footstep.flac".into(),
+            robot1: "sfx/robot1.flac".into(),
+            robot2: "sfx/robot2.flac".into(),
         }
     }
 }
@@ -216,6 +221,7 @@ struct PlayerBundle {
     mappable: Mappable,
     viewshed: Viewshed,
     blocks_visibility: BlocksVisibility,
+    blocks_motion: BlocksMotion,
     lives: Lives,
     checkpoint: Checkpoint,
     level: Level,
@@ -240,6 +246,7 @@ impl Default for PlayerBundle {
                 ..Default::default()
             },
             blocks_visibility: Default::default(),
+            blocks_motion: Default::default(),
             lives: Default::default(),
             checkpoint: Default::default(),
             level: Default::default(),
@@ -490,6 +497,93 @@ fn exit_post_processor(
                     let index = coords.to_index(map.width());
                     motion_blocked[index] = false;
                     visibility_blocked[index] = false;
+                }
+            }
+        }
+    }
+}
+
+#[derive(Bundle)]
+struct RobotBundle {
+    coordinates: Coordinates,
+    transform: Transform,
+    global_transform: GlobalTransform,
+    speed: Speed,
+    max_speed: MaxSpeed,
+    velocity: Velocity,
+    name: Name,
+    viewshed: Viewshed,
+    blocks_visibility: BlocksVisibility,
+    blocks_motion: BlocksMotion,
+    sound_icon: SoundIcon,
+}
+
+fn spawn_robots(
+    mut commands: Commands,
+    sfx: Res<Sfx>,
+    level: Query<&Level>,
+    map: Query<(&Map, &Areas), Added<Areas>>,
+) {
+    if let Ok(level) = level.single() {
+        if let Ok((map, areas)) = map.single() {
+            let total_robots = 10 + **level * 5;
+            if let Some(start) = map.start() {
+                let starting_area = areas.iter().find(|a| a.contains(&start)).unwrap();
+                let areas = areas
+                    .iter()
+                    .cloned()
+                    .filter(|a| a != starting_area)
+                    .collect::<Vec<Area>>();
+                let mut spawned_robots = 0;
+                let mut rng = thread_rng();
+                let mut candidate_areas = areas.clone();
+                candidate_areas.shuffle(&mut rng);
+                let mut all_robot_coords: Vec<(usize, usize)> = vec![];
+                while spawned_robots < total_robots {
+                    let area = candidate_areas[0].clone();
+                    candidate_areas.remove(0);
+                    if candidate_areas.is_empty() {
+                        candidate_areas = areas.clone();
+                        candidate_areas.shuffle(&mut rng);
+                    }
+                    let mut robot_coords = (
+                        rng.gen_range(area.rect.x1..area.rect.x2),
+                        rng.gen_range(area.rect.y1..area.rect.y2),
+                    );
+                    while all_robot_coords.contains(&robot_coords) {
+                        robot_coords = (
+                            rng.gen_range(area.rect.x1..area.rect.x2),
+                            rng.gen_range(area.rect.y1..area.rect.y2),
+                        );
+                    }
+                    all_robot_coords.push(robot_coords);
+                    println!("Spawning robot at {:?}", robot_coords);
+                    let sound = if rand::random() {
+                        sfx.robot1
+                    } else {
+                        sfx.robot2
+                    };
+                    commands.spawn().insert_bundle(RobotBundle {
+                        coordinates: robot_coords.into(),
+                        transform: Default::default(),
+                        global_transform: Default::default(),
+                        speed: Default::default(),
+                        max_speed: MaxSpeed(2.),
+                        velocity: Default::default(),
+                        name: Name::new("Robot"),
+                        viewshed: Viewshed {
+                            range: 16,
+                            ..Default::default()
+                        },
+                        blocks_visibility: Default::default(),
+                        blocks_motion: Default::default(),
+                        sound_icon: SoundIcon {
+                            sound,
+                            gain: 0.3,
+                            ..Default::default()
+                        },
+                    });
+                    spawned_robots += 1;
                 }
             }
         }
