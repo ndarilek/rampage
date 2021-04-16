@@ -169,6 +169,7 @@ struct Sfx {
     ambiences: Vec<HandleId>,
     exit: HandleId,
     level_exit: HandleId,
+    life_lost: HandleId,
     player_footstep: HandleId,
     robot1: HandleId,
     robot2: HandleId,
@@ -187,6 +188,7 @@ impl Default for Sfx {
             ],
             exit: "sfx/exit.wav".into(),
             level_exit: "sfx/level_exit.flac".into(),
+            life_lost: "sfx/life_lost.flac".into(),
             player_footstep: "sfx/player_footstep.flac".into(),
             robot1: "sfx/robot1.flac".into(),
             robot2: "sfx/robot2.flac".into(),
@@ -889,15 +891,31 @@ fn checkpoint(
 }
 
 fn life_loss(
+    mut commands: Commands,
     mut state: ResMut<State<AppState>>,
     mut tts: ResMut<Tts>,
+    asset_server: Res<AssetServer>,
+    sfx: Res<Sfx>,
     mut player: Query<(&Player, &Lives), Changed<Lives>>,
+    map: Query<(Entity, &Map)>,
 ) -> Result<(), Box<dyn Error>> {
     for (_, lives) in player.iter_mut() {
         if **lives == 3 {
             return Ok(());
         }
         tts.speak("Wall! Wall! You ran into a wall!", true)?;
+        let buffer = asset_server.get_handle(sfx.life_lost);
+        let entity_id = commands
+            .spawn()
+            .insert(Sound {
+                buffer,
+                state: SoundState::Playing,
+                ..Default::default()
+            })
+            .id();
+        if let Ok((entity, _)) = map.single() {
+            commands.entity(entity).push_children(&[entity_id]);
+        }
         state.push(AppState::BetweenLives)?;
     }
     Ok(())
