@@ -589,7 +589,7 @@ fn spawn_robots(
                             velocity: Default::default(),
                             name: Name::new("Robot"),
                             viewshed: Viewshed {
-                                range: 24,
+                                range: 16,
                                 ..Default::default()
                             },
                             blocks_visibility: Default::default(),
@@ -641,6 +641,7 @@ fn sees_player_scorer(
         if let Ok(viewshed) = viewsheds.get(*actor) {
             if let Ok((_, coordinates)) = player.single() {
                 if viewshed.is_visible(coordinates) {
+                    println!("Visible, should pursue");
                     score.set(100.);
                 } else {
                     score.set(0.);
@@ -675,6 +676,7 @@ fn pursue_player(
     mut log: Query<&mut Log>,
 ) {
     for (Actor(actor), mut state) in query.iter_mut() {
+        println!("Pursuing");
         match *state {
             ActionState::Requested => {
                 if let Ok(mut log) = log.single_mut() {
