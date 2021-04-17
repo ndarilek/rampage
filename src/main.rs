@@ -1013,17 +1013,19 @@ fn checkpoint(
 fn life_loss(
     mut commands: Commands,
     mut state: ResMut<State<AppState>>,
-    mut tts: ResMut<Tts>,
     asset_server: Res<AssetServer>,
     sfx: Res<Sfx>,
     mut player: Query<(&Player, &Lives), Changed<Lives>>,
     map: Query<(Entity, &Map)>,
+    mut log: Query<&mut Log>,
 ) -> Result<(), Box<dyn Error>> {
     for (_, lives) in player.iter_mut() {
         if **lives == 3 {
             return Ok(());
         }
-        tts.speak("Wall! Wall! You ran into a wall!", true)?;
+        if let Ok(mut log) = log.single_mut() {
+            log.push("Wall! Wall! You ran into a wall!");
+        }
         let buffer = asset_server.get_handle(sfx.life_lost);
         let entity_id = commands
             .spawn()
