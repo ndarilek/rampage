@@ -260,6 +260,7 @@ const SPEAK_COORDINATES: &str = "SPEAK_COORDINATES";
 const SPEAK_DIRECTION: &str = "SPEAK_DIRECTION";
 const SPEAK_HEALTH: &str = "SPEAK_HEALTH";
 const SPEAK_LEVEL: &str = "SPEAK_LEVEL";
+const SPEAK_ROBOT_COUNT: &str = "SPEAK_ROBOT_COUNT";
 const SNAP_LEFT: &str = "SNAP_LEFT";
 const SNAP_RIGHT: &str = "SNAP_RIGHT";
 const CONTINUE: &str = "CONTINUE";
@@ -333,6 +334,7 @@ fn setup(
         .bind(SPEAK_DIRECTION, KeyCode::D)
         .bind(SPEAK_HEALTH, KeyCode::H)
         .bind(SPEAK_LEVEL, KeyCode::L)
+        .bind(SPEAK_ROBOT_COUNT, KeyCode::R)
         .bind(
             exploration::ACTION_EXPLORE_FORWARD,
             vec![KeyCode::LAlt, KeyCode::Up],
@@ -505,8 +507,13 @@ fn exit_post_processor(
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, Reflect)]
+#[reflect(Component)]
+struct Robot;
+
 #[derive(Bundle)]
 struct RobotBundle {
+    robot: Robot,
     coordinates: Coordinates,
     transform: Transform,
     global_transform: GlobalTransform,
@@ -566,6 +573,7 @@ fn spawn_robots(
                         sfx.robot2
                     };
                     commands.spawn().insert_bundle(RobotBundle {
+                        robot: Robot,
                         coordinates: robot_coords.into(),
                         transform: Default::default(),
                         global_transform: Default::default(),
@@ -686,6 +694,7 @@ fn speak_info(
     input: Res<InputMap<String>>,
     mut tts: ResMut<Tts>,
     player: Query<(&Player, &Coordinates, &Transform, &Lives, &Level)>,
+    robots: Query<&Robot>,
 ) -> Result<(), Box<dyn Error>> {
     if input.just_active(SPEAK_COORDINATES) {
         if let Ok((_, coordinates, _, _, _)) = player.single() {
@@ -712,6 +721,14 @@ fn speak_info(
         if let Ok((_, _, _, _, level)) = player.single() {
             tts.speak(format!("Level {}", **level), true)?;
         }
+    }
+    if input.just_active(SPEAK_ROBOT_COUNT) {
+        let robot_count = robots.iter().len();
+        let robot_or_robots = if robot_count == 1 { "RObot" } else { "robots" };
+        tts.speak(
+            format!("{} {} remaining.", robot_count, robot_or_robots),
+            true,
+        )?;
     }
     Ok(())
 }
