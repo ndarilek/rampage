@@ -1017,14 +1017,10 @@ fn life_loss(
     sfx: Res<Sfx>,
     mut player: Query<(&Player, &Lives), Changed<Lives>>,
     map: Query<(Entity, &Map)>,
-    mut log: Query<&mut Log>,
 ) -> Result<(), Box<dyn Error>> {
     for (_, lives) in player.iter_mut() {
         if **lives == 3 {
             return Ok(());
-        }
-        if let Ok(mut log) = log.single_mut() {
-            log.push("Wall! Wall! You ran into a wall!");
         }
         let buffer = asset_server.get_handle(sfx.life_lost);
         let entity_id = commands
@@ -1083,6 +1079,8 @@ fn collision(
     mut collisions: EventReader<Collision>,
     mut player: Query<(Entity, &Player, &mut Lives)>,
     state: Res<State<AppState>>,
+    mut log: Query<&mut Log>,
+    map: Query<&Map>,
 ) -> Result<(), Box<dyn Error>> {
     for event in collisions.iter() {
         for (player_entity, _, mut lives) in player.iter_mut() {
@@ -1091,6 +1089,19 @@ fn collision(
                 if event.entity == player_entity {
                     if **lives > 0 {
                         **lives -= 1;
+                    }
+                    if let Ok(mut log) = log.single_mut() {
+                        if let Ok(map) = map.single() {
+                            if map.base.at(
+                                event.coordinates.x() as usize,
+                                event.coordinates.y() as usize,
+                            ) == TileType::Wall
+                            {
+                                log.push("Wall! Wall! You ran into a wall!");
+                            } else {
+                                log.push("You ran into a very irate robot.");
+                            }
+                        }
                     }
                 }
             }
