@@ -692,7 +692,10 @@ fn pursue_player(
                 }
             }
             ActionState::Cancelled => {
-                println!("Cancelled");
+                if let Ok(mut log) = log.single_mut() {
+                    log.push("You've evaded a robot.");
+                }
+                *state = ActionState::Success;
             }
             ActionState::Success => {
                 println!("Succeeded");
