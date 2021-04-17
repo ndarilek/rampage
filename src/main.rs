@@ -10,6 +10,7 @@ use bevy::{
 use bevy_input_actionmap::{GamepadAxisDirection, InputMap};
 use bevy_openal::{efx, Buffer, Context, GlobalEffects, Listener, Sound, SoundState};
 use bevy_tts::Tts;
+use big_brain::prelude::*;
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use derive_more::{Deref, DerefMut};
 use mapgen::{MapBuilder, TileType};
@@ -30,12 +31,13 @@ use crate::{
     core::{Angle, Area, Coordinates, Player, PointLike},
     error::error_handler,
     exploration::Mappable,
+    log::Log,
     map::{Areas, Exit, Map, MapBundle, MapConfig},
     navigation::{
         BlocksMotion, Collision, MaxSpeed, MonitorsCollisions, MotionBlocked, NavigationConfig,
         RotationSpeed, Speed, Velocity,
     },
-    pathfinding::find_path,
+    pathfinding::{find_path, Destination},
     sound::{Footstep, FootstepBundle, SoundIcon},
     visibility::{BlocksVisibility, Viewshed, VisibilityBlocked},
 };
@@ -61,6 +63,7 @@ fn main() {
         .add_plugin(bevy_input_actionmap::ActionPlugin::<String>::default())
         .add_plugin(bevy_openal::OpenAlPlugin)
         .add_plugin(bevy_tts::TtsPlugin)
+        .add_plugin(BigBrainPlugin)
         .add_plugin(core::CorePlugin)
         .add_plugin(exploration::ExplorationPlugin)
         .add_plugin(log::LogPlugin)
@@ -97,6 +100,8 @@ fn main() {
                 .after(HIGHLIGHT_NEXT_EXIT_LABEL),
         )
         .add_system(spawn_robots.system())
+        .add_system(sees_player_scorer.system())
+        .add_system(pursue_player.system())
         .add_system(spawn_ambience.system())
         .add_system(spawn_level_exit.system())
         .add_system(position_player_at_start.system())
@@ -531,10 +536,10 @@ fn spawn_robots(
     mut commands: Commands,
     sfx: Res<Sfx>,
     level: Query<&Level>,
-    map: Query<(&Map, &Areas), Added<Areas>>,
+    map: Query<(Entity, &Map, &Areas), Added<Areas>>,
 ) {
     if let Ok(level) = level.single() {
-        if let Ok((map, areas)) = map.single() {
+        if let Ok((entity, map, areas)) = map.single() {
             let total_robots = 10 + **level * 5;
             if let Some(start) = map.start() {
                 let starting_area = areas.iter().find(|a| a.contains(&start)).unwrap();
@@ -572,30 +577,128 @@ fn spawn_robots(
                     } else {
                         sfx.robot2
                     };
-                    commands.spawn().insert_bundle(RobotBundle {
-                        robot: Robot,
-                        coordinates: robot_coords.into(),
-                        transform: Default::default(),
-                        global_transform: Default::default(),
-                        speed: Default::default(),
-                        max_speed: MaxSpeed(2.),
-                        velocity: Default::default(),
-                        name: Name::new("Robot"),
-                        viewshed: Viewshed {
-                            range: 16,
-                            ..Default::default()
-                        },
-                        blocks_visibility: Default::default(),
-                        blocks_motion: Default::default(),
-                        sound_icon: SoundIcon {
-                            sound,
-                            gain: 0.3,
-                            ..Default::default()
-                        },
-                    });
+                    let entity_id = commands
+                        .spawn()
+                        .insert_bundle(RobotBundle {
+                            robot: Robot,
+                            coordinates: robot_coords.into(),
+                            transform: Default::default(),
+                            global_transform: Default::default(),
+                            speed: Default::default(),
+                            max_speed: MaxSpeed(2.),
+                            velocity: Default::default(),
+                            name: Name::new("Robot"),
+                            viewshed: Viewshed {
+                                range: 24,
+                                ..Default::default()
+                            },
+                            blocks_visibility: Default::default(),
+                            blocks_motion: Default::default(),
+                            sound_icon: SoundIcon {
+                                sound,
+                                gain: 0.3,
+                                ..Default::default()
+                            },
+                        })
+                        .insert(
+                            Thinker::build()
+                                .picker(FirstToScore { threshold: 100. })
+                                .when(SeesPlayer::build(), PursuePlayer::build()),
+                        )
+                        .id();
+                    commands.entity(entity).push_children(&[entity_id]);
                     spawned_robots += 1;
                 }
             }
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct SeesPlayer;
+
+impl SeesPlayer {
+    fn build() -> SeesPlayerBuilder {
+        SeesPlayerBuilder
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct SeesPlayerBuilder;
+
+impl ScorerBuilder for SeesPlayerBuilder {
+    fn build(&self, cmd: &mut Commands, scorer: Entity, _actor: Entity) {
+        cmd.entity(scorer).insert(SeesPlayer);
+    }
+}
+
+fn sees_player_scorer(
+    mut query: Query<(&Actor, &mut Score), With<SeesPlayer>>,
+    viewsheds: Query<&Viewshed>,
+    player: Query<(&Player, &Coordinates)>,
+) {
+    for (Actor(actor), mut score) in query.iter_mut() {
+        if let Ok(viewshed) = viewsheds.get(*actor) {
+            if let Ok((_, coordinates)) = player.single() {
+                if viewshed.is_visible(coordinates) {
+                    score.set(100.);
+                } else {
+                    score.set(0.);
+                }
+            }
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct PursuePlayer;
+
+impl PursuePlayer {
+    fn build() -> PursuePlayerBuilder {
+        PursuePlayerBuilder
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct PursuePlayerBuilder;
+
+impl ActionBuilder for PursuePlayerBuilder {
+    fn build(&self, cmd: &mut Commands, action: Entity, _actor: Entity) {
+        cmd.entity(action).insert(PursuePlayer);
+    }
+}
+
+fn pursue_player(
+    mut commands: Commands,
+    mut query: Query<(&Actor, &mut ActionState), With<PursuePlayer>>,
+    player: Query<(&Player, &Coordinates)>,
+    mut log: Query<&mut Log>,
+) {
+    for (Actor(actor), mut state) in query.iter_mut() {
+        match *state {
+            ActionState::Requested => {
+                if let Ok(mut log) = log.single_mut() {
+                    log.push("A robot is chasing you!");
+                }
+                *state = ActionState::Executing;
+            }
+            ActionState::Executing => {
+                if let Ok((_, coordinates)) = player.single() {
+                    let x = coordinates.x_i32();
+                    let y = coordinates.y_i32();
+                    commands.entity(*actor).insert(Destination((x, y)));
+                }
+            }
+            ActionState::Cancelled => {
+                println!("Cancelled");
+            }
+            ActionState::Success => {
+                println!("Succeeded");
+            }
+            ActionState::Failure => {
+                println!("Failure");
+            }
+            _ => {}
         }
     }
 }
