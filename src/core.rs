@@ -188,6 +188,10 @@ pub trait PointLike {
         self.y() as i32
     }
 
+    fn i32(&self) -> (i32, i32) {
+        (self.x_i32(), self.y_i32())
+    }
+
     fn to_index(&self, width: usize) -> usize {
         ((self.y_i32() * width as i32) + self.x_i32()) as usize
     }
