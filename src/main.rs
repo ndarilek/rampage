@@ -133,10 +133,7 @@ fn main() {
                     .chain(error_handler.system()),
             ),
         )
-        .add_system_to_stage(
-            CoreStage::PostUpdate,
-            collision.system().chain(error_handler.system()),
-        )
+        .add_system_to_stage(CoreStage::PostUpdate, collision.system())
         .add_system_set(
             SystemSet::on_enter(AppState::LevelUp)
                 .with_system(level_up_enter.system().chain(error_handler.system())),
@@ -1244,9 +1241,9 @@ fn collision(
     state: Res<State<AppState>>,
     mut log: Query<&mut Log>,
     map: Query<&Map>,
-) -> Result<(), Box<dyn Error>> {
+) {
     for event in collisions.iter() {
-        if let Ok(_) = bullets.get(event.entity) {
+        if bullets.get(event.entity).is_ok() {
             commands.entity(event.entity).despawn_recursive();
         }
         for (player_entity, _, mut lives) in player.iter_mut() {
@@ -1273,7 +1270,6 @@ fn collision(
             }
         }
     }
-    Ok(())
 }
 
 fn level_up(
