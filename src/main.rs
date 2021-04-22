@@ -665,10 +665,18 @@ fn sees_player_scorer(
     mut query: Query<(&Actor, &mut Score), With<SeesPlayer>>,
     viewsheds: Query<&Viewshed>,
     player: Query<(&Player, &Coordinates)>,
+    mut last_player_coords: Local<Option<(i32, i32)>>,
 ) {
-    for (Actor(actor), mut score) in query.iter_mut() {
-        if let Ok(viewshed) = viewsheds.get(*actor) {
-            if let Ok((_, coordinates)) = player.single() {
+    if let Ok((_, coordinates)) = player.single() {
+        let coords = coordinates.i32();
+        if last_player_coords.is_none() {
+            *last_player_coords = Some(coords);
+        }
+        if *last_player_coords == Some(coords) {
+            return;
+        }
+        for (Actor(actor), mut score) in query.iter_mut() {
+            if let Ok(viewshed) = viewsheds.get(*actor) {
                 if viewshed.is_visible(coordinates) {
                     score.set(100.);
                 } else {
@@ -676,6 +684,7 @@ fn sees_player_scorer(
                 }
             }
         }
+        *last_player_coords = Some(coords);
     }
 }
 
