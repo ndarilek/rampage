@@ -82,6 +82,7 @@ fn movement_controls(
     time: Res<Time>,
     mut query: Query<(
         Entity,
+        &Player,
         &mut Velocity,
         &mut Speed,
         &MaxSpeed,
@@ -91,8 +92,16 @@ fn movement_controls(
     )>,
     exploration_focused: Query<(Entity, &ExplorationFocused)>,
 ) {
-    for (entity, mut velocity, mut speed, max_speed, rotation_speed, mut transform, destination) in
-        query.iter_mut()
+    for (
+        entity,
+        _,
+        mut velocity,
+        mut speed,
+        max_speed,
+        rotation_speed,
+        mut transform,
+        destination,
+    ) in query.iter_mut()
     {
         let sprinting = input.active(ACTION_SPRINT);
         if sprinting {
