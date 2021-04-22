@@ -571,7 +571,6 @@ fn spawn_robots(
                         );
                     }
                     all_robot_coords.push(robot_coords);
-                    println!("Spawning robot at {:?}", robot_coords);
                     let sound = if rand::random() {
                         sfx.robot1
                     } else {
@@ -641,7 +640,6 @@ fn sees_player_scorer(
         if let Ok(viewshed) = viewsheds.get(*actor) {
             if let Ok((_, coordinates)) = player.single() {
                 if viewshed.is_visible(coordinates) {
-                    println!("Visible, should pursue");
                     score.set(100.);
                 } else {
                     score.set(0.);
@@ -674,9 +672,9 @@ fn pursue_player(
     mut query: Query<(&Actor, &mut ActionState), With<PursuePlayer>>,
     player: Query<(&Player, &Coordinates)>,
     mut log: Query<&mut Log>,
+    robot: Query<&MaxSpeed>,
 ) {
     for (Actor(actor), mut state) in query.iter_mut() {
-        println!("Pursuing");
         match *state {
             ActionState::Requested => {
                 if let Ok(mut log) = log.single_mut() {
@@ -686,22 +684,20 @@ fn pursue_player(
             }
             ActionState::Executing => {
                 if let Ok((_, coordinates)) = player.single() {
-                    let x = coordinates.x_i32();
-                    let y = coordinates.y_i32();
-                    commands.entity(*actor).insert(Destination((x, y)));
+                    if let Ok(max_speed) = robot.get(*actor) {
+                        commands
+                            .entity(*actor)
+                            .insert(Destination(coordinates.i32()))
+                            .insert(Speed(**max_speed));
+                    }
                 }
             }
             ActionState::Cancelled => {
+                println!("Evaded");
                 if let Ok(mut log) = log.single_mut() {
                     log.push("You've evaded a robot.");
                 }
                 *state = ActionState::Success;
-            }
-            ActionState::Success => {
-                println!("Succeeded");
-            }
-            ActionState::Failure => {
-                println!("Failure");
             }
             _ => {}
         }

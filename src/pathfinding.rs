@@ -135,7 +135,7 @@ fn negotiate_path(
     {
         for (map, motion_blocked) in map.iter() {
             let mut new_path = path.0.clone();
-            let start_i32 = (coordinates.x() as i32, coordinates.y() as i32);
+            let start_i32 = coordinates.i32();
             let new_path_clone = new_path.clone();
             let mut iter = new_path_clone.split(|p| *p == start_i32);
             if iter.next().is_some() {
