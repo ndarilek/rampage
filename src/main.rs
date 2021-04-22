@@ -102,7 +102,7 @@ fn main() {
         .add_system(spawn_robots.system())
         .add_system(sees_player_scorer.system())
         .add_system(pursue_player.system())
-        //.add_system(spawn_ambience.system())
+        .add_system(spawn_ambience.system())
         .add_system(spawn_level_exit.system())
         .add_system(position_player_at_start.system())
         .add_system_set(
@@ -601,13 +601,13 @@ fn spawn_robots(
                                 ..Default::default()
                             },
                         })
-                        /*.insert(
+                        .insert(
                             Thinker::build()
                                 .picker(FirstToScore { threshold: 100. })
                                 .when(SeesPlayer::build(), PursuePlayer::build()),
-                        )*/
-                        .insert(Destination((1, 1)))
-                        .insert(Speed(2.))
+                        )
+                        //.insert(Destination((1, 1)))
+                        //.insert(Speed(2.))
                         .with_children(|parent| {
                             parent.spawn().insert_bundle(FootstepBundle {
                                 footstep: Footstep {
