@@ -102,7 +102,7 @@ fn main() {
         .add_system(spawn_robots.system())
         .add_system(sees_player_scorer.system())
         .add_system(pursue_player.system())
-        .add_system(spawn_ambience.system())
+        //.add_system(spawn_ambience.system())
         .add_system(spawn_level_exit.system())
         .add_system(position_player_at_start.system())
         .add_system_set(
@@ -176,6 +176,7 @@ struct Sfx {
     level_exit: HandleId,
     life_lost: HandleId,
     player_footstep: HandleId,
+    robot_footstep: HandleId,
     robot1: HandleId,
     robot2: HandleId,
 }
@@ -195,6 +196,7 @@ impl Default for Sfx {
             level_exit: "sfx/level_exit.flac".into(),
             life_lost: "sfx/life_lost.flac".into(),
             player_footstep: "sfx/player_footstep.flac".into(),
+            robot_footstep: "sfx/robot_footstep.flac".into(),
             robot1: "sfx/robot1.flac".into(),
             robot2: "sfx/robot2.flac".into(),
         }
@@ -595,7 +597,7 @@ fn spawn_robots(
                             blocks_motion: Default::default(),
                             sound_icon: SoundIcon {
                                 sound,
-                                gain: 0.3,
+                                gain: 0.1,
                                 ..Default::default()
                             },
                         })
@@ -604,6 +606,17 @@ fn spawn_robots(
                                 .picker(FirstToScore { threshold: 100. })
                                 .when(SeesPlayer::build(), PursuePlayer::build()),
                         )
+                        .with_children(|parent| {
+                            parent.spawn().insert_bundle(FootstepBundle {
+                                footstep: Footstep {
+                                    sound: sfx.player_footstep,
+                                    step_length: 2.,
+                                    gain: 1.,
+                                    pitch_variation: None,
+                                },
+                                ..Default::default()
+                            });
+                        })
                         .id();
                     commands.entity(entity).push_children(&[entity_id]);
                     spawned_robots += 1;
@@ -683,6 +696,7 @@ fn pursue_player(
                 *state = ActionState::Executing;
             }
             ActionState::Executing => {
+                println!("{:?} is pursuing", actor);
                 if let Ok((_, coordinates)) = player.single() {
                     if let Ok(max_speed) = robot.get(*actor) {
                         commands
@@ -693,7 +707,6 @@ fn pursue_player(
                 }
             }
             ActionState::Cancelled => {
-                println!("Evaded");
                 if let Ok(mut log) = log.single_mut() {
                     log.push("You've evaded a robot.");
                 }
@@ -770,7 +783,6 @@ fn spawn_level_exit(
                     .insert(LevelExit)
                     .id();
                 commands.entity(entity).push_children(&[exit_entity]);
-                println!("{:?}", center);
             }
         }
     }
