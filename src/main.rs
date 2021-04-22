@@ -172,6 +172,7 @@ struct AssetHandles {
 #[derive(Clone, Debug)]
 struct Sfx {
     ambiences: Vec<HandleId>,
+    drone: HandleId,
     exit: HandleId,
     level_exit: HandleId,
     life_lost: HandleId,
@@ -192,6 +193,7 @@ impl Default for Sfx {
                 "sfx/ambience5.flac".into(),
                 "sfx/ambience6.flac".into(),
             ],
+            drone: "sfx/drone.flac".into(),
             exit: "sfx/exit.wav".into(),
             level_exit: "sfx/level_exit.flac".into(),
             life_lost: "sfx/life_lost.flac".into(),
@@ -439,6 +441,8 @@ fn setup_level(
     mut commands: Commands,
     mut level: Query<&mut Level>,
     mut tts: ResMut<Tts>,
+    buffers: Res<Assets<Buffer>>,
+    sfx: Res<Sfx>,
 ) -> Result<(), Box<dyn Error>> {
     if let Ok(mut level) = level.single_mut() {
         **level += 1;
@@ -459,10 +463,21 @@ fn setup_level(
             .with(mapgen::filter::DistantExit::new())
             .build();
         let map = Map::new(map);
-        commands.spawn().insert_bundle(MapBundle {
-            map,
-            ..Default::default()
-        });
+        commands
+            .spawn()
+            .insert_bundle(MapBundle {
+                map,
+                ..Default::default()
+            })
+            .with_children(|parent| {
+                parent.spawn().insert(Sound {
+                    buffer: buffers.get_handle(sfx.drone),
+                    state: SoundState::Playing,
+                    gain: 0.05,
+                    looping: true,
+                    ..Default::default()
+                });
+            });
         tts.speak(format!("Level {}.", **level), false)?;
     }
     Ok(())
@@ -698,7 +713,6 @@ fn pursue_player(
                 *state = ActionState::Executing;
             }
             ActionState::Executing => {
-                println!("{:?} is pursuing", actor);
                 if let Ok((_, coordinates)) = player.single() {
                     if let Ok(max_speed) = robot.get(*actor) {
                         commands
