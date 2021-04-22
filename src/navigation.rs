@@ -158,10 +158,6 @@ fn movement_controls(
                 commands.entity(entity).remove::<ExplorationFocused>();
             }
             direction = transform.compute_matrix().transform_vector3(direction);
-            /*if let Some(yaw) = yaw_clone {
-                let yaw = Mat3::from_rotation_z(yaw.radians());
-                direction = yaw.transform_vector2(direction);
-            }*/
             let direction = Vec2::new(direction.x, direction.y);
             **velocity = direction;
         } else if destination.is_none() {
