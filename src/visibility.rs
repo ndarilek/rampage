@@ -224,7 +224,7 @@ fn log_visible(
     players: Query<&Player>,
 ) {
     let mut new_seen: Vec<Entity> = vec![];
-    for mut log in log.iter_mut() {
+    if let Ok(mut log) = log.single_mut() {
         for (viewshed, coordinates, _) in viewers.iter() {
             for viewed_coordinates in &viewshed.visible {
                 for map in map.iter() {
