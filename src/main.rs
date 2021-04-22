@@ -611,9 +611,9 @@ fn spawn_robots(
                         .with_children(|parent| {
                             parent.spawn().insert_bundle(FootstepBundle {
                                 footstep: Footstep {
-                                    sound: sfx.player_footstep,
+                                    sound: sfx.robot_footstep,
                                     step_length: 2.,
-                                    gain: 0.5,
+                                    gain: 0.3,
                                     pitch_variation: None,
                                 },
                                 ..Default::default()
