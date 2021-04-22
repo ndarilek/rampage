@@ -81,11 +81,9 @@ fn footstep(
     mut sounds: Query<&mut Sound>,
 ) {
     for (entity, footstep, children, transform) in footsteps.iter() {
-        println!("Footstep for {:?}: {:?}", entity, children);
         if let Some(children) = children {
             if let Some(last) = last_step_distance.get(&entity) {
                 let distance = last.0 + (transform.translation - last.1).length();
-                println!("Distance for {:?}: {}", entity, distance);
                 if distance >= footstep.step_length {
                     last_step_distance.insert(entity, (0., transform.translation));
                     let sound = children[0];
@@ -96,14 +94,12 @@ fn footstep(
                             pitch += random::<f32>() * pitch_variation;
                             sound.pitch = pitch;
                         }
-                        println!("Play for {:?}", entity);
                         sound.play();
                     }
                 } else if last.1 != transform.translation {
                     last_step_distance.insert(entity, (distance, transform.translation));
                 }
             } else {
-                println!("Inserting new last step.");
                 last_step_distance.insert(entity, (0., transform.translation));
             }
         } else {
