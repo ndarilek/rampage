@@ -74,7 +74,10 @@ fn footstep(
     mut commands: Commands,
     assets: Res<Assets<Buffer>>,
     mut last_step_distance: Local<HashMap<Entity, (f32, Vec3)>>,
-    footsteps: Query<(Entity, &Footstep, Option<&Children>, &GlobalTransform)>,
+    footsteps: Query<
+        (Entity, &Footstep, Option<&Children>, &GlobalTransform),
+        Changed<GlobalTransform>,
+    >,
     mut sounds: Query<&mut Sound>,
 ) {
     for (entity, footstep, children, transform) in footsteps.iter() {

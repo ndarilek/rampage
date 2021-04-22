@@ -601,17 +601,19 @@ fn spawn_robots(
                                 ..Default::default()
                             },
                         })
-                        .insert(
+                        /*.insert(
                             Thinker::build()
                                 .picker(FirstToScore { threshold: 100. })
                                 .when(SeesPlayer::build(), PursuePlayer::build()),
-                        )
+                        )*/
+                        .insert(Destination((1, 1)))
+                        .insert(Speed(2.))
                         .with_children(|parent| {
                             parent.spawn().insert_bundle(FootstepBundle {
                                 footstep: Footstep {
                                     sound: sfx.player_footstep,
                                     step_length: 2.,
-                                    gain: 1.,
+                                    gain: 0.5,
                                     pitch_variation: None,
                                 },
                                 ..Default::default()
