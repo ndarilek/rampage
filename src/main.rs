@@ -1,6 +1,6 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
-use std::{error::Error, f32::consts::PI};
+use std::{collections::HashMap, error::Error, f32::consts::PI};
 
 use bevy::{
     asset::{HandleId, LoadState},
@@ -110,6 +110,7 @@ fn main() {
                 .with_system(speak_info.system().chain(error_handler.system()))
                 .with_system(snap.system())
                 .with_system(shoot.system())
+                .with_system(bullet.system())
                 .with_system(level_up.system().chain(error_handler.system())),
         )
         .add_system(
@@ -173,6 +174,7 @@ struct AssetHandles {
 #[derive(Clone, Debug)]
 struct Sfx {
     ambiences: Vec<HandleId>,
+    bullet: HandleId,
     drone: HandleId,
     exit: HandleId,
     level_exit: HandleId,
@@ -195,6 +197,7 @@ impl Default for Sfx {
                 "sfx/ambience5.flac".into(),
                 "sfx/ambience6.flac".into(),
             ],
+            bullet: "sfx/bullet.flac".into(),
             drone: "sfx/drone.flac".into(),
             exit: "sfx/exit.wav".into(),
             level_exit: "sfx/level_exit.flac".into(),
@@ -223,6 +226,12 @@ struct Checkpoint(Coordinates);
 #[derive(Clone, Debug, Default, Deref, DerefMut)]
 struct ShotTimer(Timer);
 
+#[derive(Clone, Copy, Debug, Default, Deref, DerefMut)]
+struct ShotRange(u32);
+
+#[derive(Clone, Debug, Default, Deref, DerefMut)]
+struct ShotSpeed(u32);
+
 #[derive(Bundle)]
 struct PlayerBundle {
     player: Player,
@@ -242,6 +251,8 @@ struct PlayerBundle {
     lives: Lives,
     checkpoint: Checkpoint,
     shot_timer: ShotTimer,
+    shot_range: ShotRange,
+    shot_speed: ShotSpeed,
     level: Level,
 }
 
@@ -268,7 +279,9 @@ impl Default for PlayerBundle {
             lives: Default::default(),
             checkpoint: Default::default(),
             level: Default::default(),
-            shot_timer: ShotTimer(Timer::from_seconds(0.2, false)),
+            shot_timer: ShotTimer(Timer::from_seconds(0.15, false)),
+            shot_range: ShotRange(24),
+            shot_speed: ShotSpeed(36),
         }
     }
 }
@@ -921,16 +934,38 @@ fn snap(input: Res<InputMap<String>>, mut transform: Query<(&Player, &mut Transf
     }
 }
 
+#[derive(Clone, Copy, Debug, Default)]
+struct Bullet;
+
+#[derive(Bundle, Default)]
+struct BulletBundle {
+    bullet: Bullet,
+    coordinates: Coordinates,
+    range: ShotRange,
+    velocity: Velocity,
+    transform: Transform,
+    global_transform: GlobalTransform,
+    sound: Sound,
+}
+
 fn shoot(
     mut commands: Commands,
     time: Res<Time>,
     input: Res<InputMap<String>>,
-    mut player: Query<(&Player, &mut Transform, &mut ShotTimer)>,
+    mut player: Query<(
+        &Player,
+        &Coordinates,
+        &Transform,
+        &mut ShotTimer,
+        &ShotRange,
+        &ShotSpeed,
+    )>,
     level: Query<(Entity, &Map)>,
     sfx: Res<Sfx>,
     buffers: Res<Assets<Buffer>>,
 ) {
-    if let Ok((_, transform, mut timer)) = player.single_mut() {
+    if let Ok((_, coordinates, transform, mut timer, shot_range, shot_speed)) = player.single_mut()
+    {
         timer.tick(time.delta());
         if input.just_active(SHOOT) && timer.finished() {
             if let Ok((entity, _)) = level.single() {
@@ -943,9 +978,58 @@ fn shoot(
                         ..Default::default()
                     })
                     .id();
-                commands.entity(entity).push_children(&[shot_sound]);
+                let mut velocity = Vec3::new(**shot_speed as f32, 0., 0.);
+                velocity = transform.compute_matrix().transform_vector3(velocity);
+                let velocity = Velocity(Vec2::new(velocity.x, velocity.y));
+                let bullet = commands
+                    .spawn()
+                    .insert_bundle(BulletBundle {
+                        coordinates: *coordinates,
+                        range: *shot_range,
+                        velocity,
+                        sound: Sound {
+                            buffer: buffers.get_handle(sfx.bullet),
+                            state: SoundState::Playing,
+                            gain: 0.4,
+                            looping: true,
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    })
+                    .id();
+                commands.entity(entity).push_children(&[shot_sound, bullet]);
             }
             timer.reset();
+        }
+    }
+}
+
+fn bullet(
+    mut commands: Commands,
+    mut bullets: Query<(&Bullet, Entity, &Coordinates, &ShotRange, &mut Sound)>,
+    mut active_bullets: Local<HashMap<Entity, ((f32, f32), f32)>>,
+) {
+    for (_, entity, coordinates, range, mut sound) in bullets.iter_mut() {
+        if !active_bullets.contains_key(&entity) {
+            active_bullets.insert(entity, ((coordinates.x(), coordinates.y()), 0.));
+        }
+        let mut remove = false;
+        if let Some((prev_coords, total_distance)) = active_bullets.get_mut(&entity) {
+            *total_distance += prev_coords.distance(coordinates);
+            if total_distance >= &mut (**range as f32) {
+                commands.entity(entity).despawn_recursive();
+                remove = true;
+            }
+            let mut ratio = 1. - *total_distance / **range as f32;
+            if ratio < 0. {
+                ratio = 0.;
+            }
+            println!("{:?}", ratio);
+            sound.pitch = ratio;
+            *prev_coords = (coordinates.x(), coordinates.y());
+        }
+        if remove {
+            active_bullets.remove(&entity);
         }
     }
 }
@@ -1153,13 +1237,18 @@ fn tick_between_lives_timer(
 }
 
 fn collision(
+    mut commands: Commands,
     mut collisions: EventReader<Collision>,
+    bullets: Query<&Bullet>,
     mut player: Query<(Entity, &Player, &mut Lives)>,
     state: Res<State<AppState>>,
     mut log: Query<&mut Log>,
     map: Query<&Map>,
 ) -> Result<(), Box<dyn Error>> {
     for event in collisions.iter() {
+        if let Ok(_) = bullets.get(event.entity) {
+            commands.entity(event.entity).despawn_recursive();
+        }
         for (player_entity, _, mut lives) in player.iter_mut() {
             let current_state = state.current();
             if *current_state == AppState::InGame {
