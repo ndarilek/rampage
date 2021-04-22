@@ -109,6 +109,7 @@ fn main() {
             SystemSet::on_update(AppState::InGame)
                 .with_system(speak_info.system().chain(error_handler.system()))
                 .with_system(snap.system())
+                .with_system(shoot.system())
                 .with_system(level_up.system().chain(error_handler.system())),
         )
         .add_system(
@@ -180,6 +181,7 @@ struct Sfx {
     robot_footstep: HandleId,
     robot1: HandleId,
     robot2: HandleId,
+    shoot: HandleId,
 }
 
 impl Default for Sfx {
@@ -201,6 +203,7 @@ impl Default for Sfx {
             robot_footstep: "sfx/robot_footstep.flac".into(),
             robot1: "sfx/robot1.flac".into(),
             robot2: "sfx/robot2.flac".into(),
+            shoot: "sfx/shoot.flac".into(),
         }
     }
 }
@@ -216,6 +219,9 @@ impl Default for Lives {
 
 #[derive(Clone, Copy, Debug, Default, Deref, DerefMut)]
 struct Checkpoint(Coordinates);
+
+#[derive(Clone, Debug, Default, Deref, DerefMut)]
+struct ShotTimer(Timer);
 
 #[derive(Bundle)]
 struct PlayerBundle {
@@ -235,6 +241,7 @@ struct PlayerBundle {
     blocks_motion: BlocksMotion,
     lives: Lives,
     checkpoint: Checkpoint,
+    shot_timer: ShotTimer,
     level: Level,
 }
 
@@ -261,6 +268,7 @@ impl Default for PlayerBundle {
             lives: Default::default(),
             checkpoint: Default::default(),
             level: Default::default(),
+            shot_timer: ShotTimer(Timer::from_seconds(0.2, false)),
         }
     }
 }
@@ -272,6 +280,7 @@ const SPEAK_LEVEL: &str = "SPEAK_LEVEL";
 const SPEAK_ROBOT_COUNT: &str = "SPEAK_ROBOT_COUNT";
 const SNAP_LEFT: &str = "SNAP_LEFT";
 const SNAP_RIGHT: &str = "SNAP_RIGHT";
+const SHOOT: &str = "SHOOT";
 const CONTINUE: &str = "CONTINUE";
 
 fn setup(
@@ -404,6 +413,7 @@ fn setup(
         .bind(SNAP_LEFT, vec![KeyCode::RControl, KeyCode::Left])
         .bind(SNAP_RIGHT, vec![KeyCode::LControl, KeyCode::Right])
         .bind(SNAP_RIGHT, vec![KeyCode::RControl, KeyCode::Right])
+        .bind(SHOOT, KeyCode::Space)
         .bind(CONTINUE, KeyCode::Return);
     Ok(())
 }
@@ -907,6 +917,35 @@ fn snap(input: Res<InputMap<String>>, mut transform: Query<(&Player, &mut Transf
             } else {
                 transform.rotation = Quat::from_rotation_z(-PI / 2.);
             }
+        }
+    }
+}
+
+fn shoot(
+    mut commands: Commands,
+    time: Res<Time>,
+    input: Res<InputMap<String>>,
+    mut player: Query<(&Player, &mut Transform, &mut ShotTimer)>,
+    level: Query<(Entity, &Map)>,
+    sfx: Res<Sfx>,
+    buffers: Res<Assets<Buffer>>,
+) {
+    if let Ok((_, transform, mut timer)) = player.single_mut() {
+        timer.tick(time.delta());
+        if input.just_active(SHOOT) && timer.finished() {
+            if let Ok((entity, _)) = level.single() {
+                let shot_sound = commands
+                    .spawn()
+                    .insert(Sound {
+                        buffer: buffers.get_handle(sfx.shoot),
+                        state: SoundState::Playing,
+                        gain: 0.5,
+                        ..Default::default()
+                    })
+                    .id();
+                commands.entity(entity).push_children(&[shot_sound]);
+            }
+            timer.reset();
         }
     }
 }
