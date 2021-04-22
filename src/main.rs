@@ -498,7 +498,7 @@ fn exit_post_processor(
             });
             let x = coordinates.x_i32();
             let y = coordinates.y_i32();
-            let exit_half_width = 4;
+            let exit_half_width = 3;
             for x in (x - exit_half_width)..=(x + exit_half_width) {
                 for y in (y - exit_half_width)..=(y + exit_half_width) {
                     map.base.set_tile(x as usize, y as usize, TileType::Floor);
