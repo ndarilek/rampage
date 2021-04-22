@@ -172,6 +172,7 @@ struct AssetHandles {
 struct Sfx {
     ambiences: Vec<HandleId>,
     bullet: HandleId,
+    bullet_wall: HandleId,
     drone: HandleId,
     exit: HandleId,
     level_exit: HandleId,
@@ -195,6 +196,7 @@ impl Default for Sfx {
                 "sfx/ambience6.flac".into(),
             ],
             bullet: "sfx/bullet.flac".into(),
+            bullet_wall: "sfx/bullet_wall.flac".into(),
             drone: "sfx/drone.flac".into(),
             exit: "sfx/exit.wav".into(),
             level_exit: "sfx/level_exit.flac".into(),
@@ -1021,7 +1023,6 @@ fn bullet(
             if ratio < 0. {
                 ratio = 0.;
             }
-            println!("{:?}", ratio);
             sound.pitch = ratio;
             *prev_coords = (coordinates.x(), coordinates.y());
         }
@@ -1235,15 +1236,41 @@ fn tick_between_lives_timer(
 
 fn collision(
     mut commands: Commands,
+    buffers: Res<Assets<Buffer>>,
+    sfx: Res<Sfx>,
     mut collisions: EventReader<Collision>,
     bullets: Query<&Bullet>,
     mut player: Query<(Entity, &Player, &mut Lives)>,
     state: Res<State<AppState>>,
     mut log: Query<&mut Log>,
-    map: Query<&Map>,
+    map: Query<(Entity, &Map)>,
 ) {
     for event in collisions.iter() {
         if bullets.get(event.entity).is_ok() {
+            if let Ok((entity, map)) = map.single() {
+                if map.base.at(
+                    event.coordinates.x() as usize,
+                    event.coordinates.y() as usize,
+                ) == TileType::Wall
+                {
+                    let transform = Transform::from_translation(Vec3::new(
+                        event.coordinates.x(),
+                        event.coordinates.y(),
+                        0.,
+                    ));
+                    let zap = commands
+                        .spawn()
+                        .insert(transform)
+                        .insert(Sound {
+                            buffer: buffers.get_handle(sfx.bullet_wall),
+                            state: SoundState::Playing,
+                            gain: 0.8,
+                            ..Default::default()
+                        })
+                        .id();
+                    commands.entity(entity).push_children(&[zap]);
+                }
+            }
             commands.entity(event.entity).despawn_recursive();
         }
         for (player_entity, _, mut lives) in player.iter_mut() {
@@ -1254,7 +1281,7 @@ fn collision(
                         **lives -= 1;
                     }
                     if let Ok(mut log) = log.single_mut() {
-                        if let Ok(map) = map.single() {
+                        if let Ok((_, map)) = map.single() {
                             if map.base.at(
                                 event.coordinates.x() as usize,
                                 event.coordinates.y() as usize,
