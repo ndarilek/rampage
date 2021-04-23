@@ -116,6 +116,8 @@ fn main() {
                 .with_system(snap.system())
                 .with_system(shoot.system())
                 .with_system(bullet.system())
+                .with_system(wall_collide.system())
+                .with_system(wall_uncollide.system())
                 .with_system(level_up.system().chain(error_handler.system())),
         )
         .add_system(
@@ -271,7 +273,6 @@ struct PlayerBundle {
     shot_range: ShotRange,
     shot_speed: ShotSpeed,
     level: Level,
-    wall_collision_timer: WallCollisionTimer,
 }
 
 impl Default for PlayerBundle {
@@ -300,7 +301,6 @@ impl Default for PlayerBundle {
             shot_timer: ShotTimer(Timer::from_seconds(0.15, false)),
             shot_range: ShotRange(24),
             shot_speed: ShotSpeed(36),
-            wall_collision_timer: Default::default(),
         }
     }
 }
@@ -1170,8 +1170,7 @@ fn collision(
     bullets: Query<&Bullet>,
     robots: Query<(&Robot, Entity, &Coordinates)>,
     mut robot_killed: EventWriter<RobotKilled>,
-    time: Res<Time>,
-    mut player: Query<(Entity, &Player, &mut Lives, &mut WallCollisionTimer)>,
+    mut player: Query<(Entity, &Player, &mut Lives, Option<&WallCollisionTimer>)>,
     state: Res<State<AppState>>,
     mut log: Query<&mut Log>,
     map: Query<(Entity, &Map)>,
@@ -1210,33 +1209,60 @@ fn collision(
             }
             commands.entity(event.entity).despawn_recursive();
         }
-        for (player_entity, _, mut lives, mut wall_collision_timer) in player.iter_mut() {
+        for (player_entity, _, mut lives, wall_collision_timer) in player.iter_mut() {
             let current_state = state.current();
             if *current_state == AppState::InGame {
                 if event.entity == player_entity {
-                    wall_collision_timer.tick(time.delta());
-                    if wall_collision_timer.finished() {
-                        if **lives > 0 {
+                    for (_, map) in map.iter() {
+                        if map.base.at(
+                            event.coordinates.x() as usize,
+                            event.coordinates.y() as usize,
+                        ) == TileType::Wall
+                        {
+                            if wall_collision_timer.is_none() {
+                                commands
+                                    .entity(player_entity)
+                                    .insert(WallCollisionTimer::default());
+                            }
+                        } else {
                             **lives -= 1;
-                        }
-                        if let Ok(mut log) = log.single_mut() {
-                            if let Ok((_, map)) = map.single() {
-                                if map.base.at(
-                                    event.coordinates.x() as usize,
-                                    event.coordinates.y() as usize,
-                                ) == TileType::Wall
-                                {
-                                    log.push("Wall! Wall! You ran into a wall!");
-                                } else {
-                                    log.push("You ran into a very irate robot.");
-                                }
+                            if let Ok(mut log) = log.single_mut() {
+                                log.push("You ran into a very irate robot.");
                             }
                         }
-                        wall_collision_timer.reset();
                     }
                 }
             }
         }
+    }
+}
+
+fn wall_collide(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut player: Query<(Entity, &mut WallCollisionTimer, &mut Lives)>,
+    mut log: Query<&mut Log>,
+) {
+    for (entity, mut timer, mut lives) in player.iter_mut() {
+        timer.tick(time.delta());
+        if timer.finished() {
+            commands.entity(entity).remove::<WallCollisionTimer>();
+            if **lives > 0 {
+                **lives -= 1;
+            }
+            if let Ok(mut log) = log.single_mut() {
+                log.push("Wall! Wall! You ran into a wall!");
+            }
+        }
+    }
+}
+
+fn wall_uncollide(
+    mut commands: Commands,
+    player: Query<(Entity, &WallCollisionTimer), Changed<Coordinates>>,
+) {
+    for (entity, _) in player.iter() {
+        commands.entity(entity).remove::<WallCollisionTimer>();
     }
 }
 
