@@ -365,62 +365,6 @@ fn setup(
         .bind(SPEAK_HEALTH, KeyCode::H)
         .bind(SPEAK_LEVEL, KeyCode::L)
         .bind(SPEAK_ROBOT_COUNT, KeyCode::R)
-        .bind(
-            exploration::ACTION_EXPLORE_FORWARD,
-            vec![KeyCode::LAlt, KeyCode::Up],
-        )
-        .bind(
-            exploration::ACTION_EXPLORE_FORWARD,
-            vec![KeyCode::RAlt, KeyCode::Up],
-        )
-        .bind_with_deadzone(
-            exploration::ACTION_EXPLORE_FORWARD,
-            GamepadAxisDirection::RightStickYPositive,
-            0.5,
-        )
-        .bind(
-            exploration::ACTION_EXPLORE_BACKWARD,
-            vec![KeyCode::LAlt, KeyCode::Down],
-        )
-        .bind(
-            exploration::ACTION_EXPLORE_BACKWARD,
-            vec![KeyCode::RAlt, KeyCode::Down],
-        )
-        .bind_with_deadzone(
-            exploration::ACTION_EXPLORE_BACKWARD,
-            GamepadAxisDirection::RightStickYNegative,
-            0.5,
-        )
-        .bind(
-            exploration::ACTION_EXPLORE_LEFT,
-            vec![KeyCode::LAlt, KeyCode::Left],
-        )
-        .bind(
-            exploration::ACTION_EXPLORE_LEFT,
-            vec![KeyCode::RAlt, KeyCode::Left],
-        )
-        .bind_with_deadzone(
-            exploration::ACTION_EXPLORE_LEFT,
-            GamepadAxisDirection::RightStickXNegative,
-            0.5,
-        )
-        .bind(
-            exploration::ACTION_EXPLORE_RIGHT,
-            vec![KeyCode::LAlt, KeyCode::Right],
-        )
-        .bind(
-            exploration::ACTION_EXPLORE_RIGHT,
-            vec![KeyCode::RAlt, KeyCode::Right],
-        )
-        .bind_with_deadzone(
-            exploration::ACTION_EXPLORE_RIGHT,
-            GamepadAxisDirection::RightStickXPositive,
-            0.5,
-        )
-        .bind(
-            exploration::ACTION_NAVIGATE_TO_EXPLORED,
-            GamepadButtonType::RightThumb,
-        )
         .bind(SNAP_LEFT, vec![KeyCode::LControl, KeyCode::Left])
         .bind(SNAP_LEFT, vec![KeyCode::RControl, KeyCode::Left])
         .bind(SNAP_RIGHT, vec![KeyCode::LControl, KeyCode::Right])
