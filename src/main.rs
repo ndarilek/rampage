@@ -10,7 +10,6 @@ use bevy::{
 use bevy_input_actionmap::{GamepadAxisDirection, InputMap};
 use bevy_openal::{efx, Buffer, Context, GlobalEffects, Listener, Sound, SoundState};
 use bevy_tts::Tts;
-use big_brain::prelude::*;
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use derive_more::{Deref, DerefMut};
 use mapgen::{MapBuilder, TileType};
@@ -37,7 +36,7 @@ use crate::{
         BlocksMotion, Collision, MaxSpeed, MonitorsCollisions, MotionBlocked, NavigationConfig,
         RotationSpeed, Speed, Velocity,
     },
-    pathfinding::{find_path, Destination},
+    pathfinding::find_path,
     sound::{Footstep, FootstepBundle, SoundIcon},
     visibility::{BlocksVisibility, Viewshed, VisibilityBlocked},
 };
@@ -63,7 +62,6 @@ fn main() {
         .add_plugin(bevy_input_actionmap::ActionPlugin::<String>::default())
         .add_plugin(bevy_openal::OpenAlPlugin)
         .add_plugin(bevy_tts::TtsPlugin)
-        .add_plugin(BigBrainPlugin)
         .add_plugin(core::CorePlugin)
         .add_plugin(exploration::ExplorationPlugin)
         .add_plugin(log::LogPlugin)
@@ -101,8 +99,6 @@ fn main() {
                 .after(HIGHLIGHT_NEXT_EXIT_LABEL),
         )
         .add_system(spawn_robots.system())
-        .add_system(sees_player_scorer.system())
-        .add_system(pursue_player.system())
         .add_system_to_stage(CoreStage::PreUpdate, robot_killed.system())
         .add_system(spawn_ambience.system())
         .add_system(spawn_level_exit.system())
@@ -642,13 +638,6 @@ fn spawn_robots(
                                 ..Default::default()
                             },
                         })
-                        .insert(
-                            Thinker::build()
-                                .picker(FirstToScore { threshold: 100. })
-                                .when(SeesPlayer::build(), PursuePlayer::build()),
-                        )
-                        //.insert(Destination((1, 1)))
-                        //.insert(Speed(2.))
                         .with_children(|parent| {
                             parent.spawn().insert_bundle(FootstepBundle {
                                 footstep: Footstep {
@@ -665,105 +654,6 @@ fn spawn_robots(
                     spawned_robots += 1;
                 }
             }
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-struct SeesPlayer;
-
-impl SeesPlayer {
-    fn build() -> SeesPlayerBuilder {
-        SeesPlayerBuilder
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-struct SeesPlayerBuilder;
-
-impl ScorerBuilder for SeesPlayerBuilder {
-    fn build(&self, cmd: &mut Commands, scorer: Entity, _actor: Entity) {
-        cmd.entity(scorer).insert(SeesPlayer);
-    }
-}
-
-fn sees_player_scorer(
-    mut query: Query<(&Actor, &mut Score), With<SeesPlayer>>,
-    viewsheds: Query<&Viewshed>,
-    player: Query<(&Player, &Coordinates)>,
-    mut last_player_coords: Local<Option<(i32, i32)>>,
-) {
-    if let Ok((_, coordinates)) = player.single() {
-        let coords = coordinates.i32();
-        if last_player_coords.is_none() {
-            *last_player_coords = Some(coords);
-        }
-        if *last_player_coords == Some(coords) {
-            return;
-        }
-        for (Actor(actor), mut score) in query.iter_mut() {
-            if let Ok(viewshed) = viewsheds.get(*actor) {
-                if viewshed.is_visible(coordinates) {
-                    score.set(100.);
-                } else {
-                    score.set(0.);
-                }
-            }
-        }
-        *last_player_coords = Some(coords);
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-struct PursuePlayer;
-
-impl PursuePlayer {
-    fn build() -> PursuePlayerBuilder {
-        PursuePlayerBuilder
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-struct PursuePlayerBuilder;
-
-impl ActionBuilder for PursuePlayerBuilder {
-    fn build(&self, cmd: &mut Commands, action: Entity, _actor: Entity) {
-        cmd.entity(action).insert(PursuePlayer);
-    }
-}
-
-fn pursue_player(
-    mut commands: Commands,
-    mut query: Query<(&Actor, &mut ActionState), With<PursuePlayer>>,
-    player: Query<(&Player, &Coordinates)>,
-    mut log: Query<&mut Log>,
-    robot: Query<&MaxSpeed>,
-) {
-    for (Actor(actor), mut state) in query.iter_mut() {
-        match *state {
-            ActionState::Requested => {
-                if let Ok(mut log) = log.single_mut() {
-                    log.push("A robot is chasing you!");
-                }
-                *state = ActionState::Executing;
-            }
-            ActionState::Executing => {
-                if let Ok((_, coordinates)) = player.single() {
-                    if let Ok(max_speed) = robot.get(*actor) {
-                        commands
-                            .entity(*actor)
-                            .insert(Destination(coordinates.i32()))
-                            .insert(Speed(**max_speed));
-                    }
-                }
-            }
-            ActionState::Cancelled => {
-                if let Ok(mut log) = log.single_mut() {
-                    log.push("You've evaded a robot.");
-                }
-                *state = ActionState::Success;
-            }
-            _ => {}
         }
     }
 }
