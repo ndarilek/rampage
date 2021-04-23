@@ -240,6 +240,15 @@ struct ShotRange(u32);
 #[derive(Clone, Debug, Default, Deref, DerefMut)]
 struct ShotSpeed(u32);
 
+#[derive(Clone, Debug, Deref, DerefMut)]
+struct WallCollisionTimer(Timer);
+
+impl Default for WallCollisionTimer {
+    fn default() -> Self {
+        Self(Timer::from_seconds(1., false))
+    }
+}
+
 #[derive(Bundle)]
 struct PlayerBundle {
     player: Player,
@@ -262,6 +271,7 @@ struct PlayerBundle {
     shot_range: ShotRange,
     shot_speed: ShotSpeed,
     level: Level,
+    wall_collision_timer: WallCollisionTimer,
 }
 
 impl Default for PlayerBundle {
@@ -290,6 +300,7 @@ impl Default for PlayerBundle {
             shot_timer: ShotTimer(Timer::from_seconds(0.15, false)),
             shot_range: ShotRange(24),
             shot_speed: ShotSpeed(36),
+            wall_collision_timer: Default::default(),
         }
     }
 }
@@ -1159,7 +1170,8 @@ fn collision(
     bullets: Query<&Bullet>,
     robots: Query<(&Robot, Entity, &Coordinates)>,
     mut robot_killed: EventWriter<RobotKilled>,
-    mut player: Query<(Entity, &Player, &mut Lives)>,
+    time: Res<Time>,
+    mut player: Query<(Entity, &Player, &mut Lives, &mut WallCollisionTimer)>,
     state: Res<State<AppState>>,
     mut log: Query<&mut Log>,
     map: Query<(Entity, &Map)>,
@@ -1198,25 +1210,29 @@ fn collision(
             }
             commands.entity(event.entity).despawn_recursive();
         }
-        for (player_entity, _, mut lives) in player.iter_mut() {
+        for (player_entity, _, mut lives, mut wall_collision_timer) in player.iter_mut() {
             let current_state = state.current();
             if *current_state == AppState::InGame {
                 if event.entity == player_entity {
-                    if **lives > 0 {
-                        **lives -= 1;
-                    }
-                    if let Ok(mut log) = log.single_mut() {
-                        if let Ok((_, map)) = map.single() {
-                            if map.base.at(
-                                event.coordinates.x() as usize,
-                                event.coordinates.y() as usize,
-                            ) == TileType::Wall
-                            {
-                                log.push("Wall! Wall! You ran into a wall!");
-                            } else {
-                                log.push("You ran into a very irate robot.");
+                    wall_collision_timer.tick(time.delta());
+                    if wall_collision_timer.finished() {
+                        if **lives > 0 {
+                            **lives -= 1;
+                        }
+                        if let Ok(mut log) = log.single_mut() {
+                            if let Ok((_, map)) = map.single() {
+                                if map.base.at(
+                                    event.coordinates.x() as usize,
+                                    event.coordinates.y() as usize,
+                                ) == TileType::Wall
+                                {
+                                    log.push("Wall! Wall! You ran into a wall!");
+                                } else {
+                                    log.push("You ran into a very irate robot.");
+                                }
                             }
                         }
+                        wall_collision_timer.reset();
                     }
                 }
             }
