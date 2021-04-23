@@ -219,8 +219,8 @@ impl Default for Lives {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Deref, DerefMut)]
-struct Checkpoint(Coordinates);
+#[derive(Clone, Copy, Debug, Default)]
+struct Checkpoint(Coordinates, Quat);
 
 #[derive(Clone, Debug, Default, Deref, DerefMut)]
 struct ShotTimer(Timer);
@@ -1081,7 +1081,7 @@ fn next_exit_removed(removed: RemovedComponents<NextExit>, mut icons: Query<&mut
 }
 
 fn checkpoint(
-    mut player: Query<(&Player, &Coordinates, &mut Checkpoint)>,
+    mut player: Query<(&Player, &Coordinates, &Transform, &mut Checkpoint)>,
     mut events: EventReader<Reset>,
     mut cache: Local<Option<Area>>,
     areas: Query<&Areas>,
@@ -1089,20 +1089,20 @@ fn checkpoint(
     for _ in events.iter() {
         *cache = None;
     }
-    if let Ok((_, coordinates, mut checkpoint)) = player.single_mut() {
+    if let Ok((_, coordinates, transform, mut checkpoint)) = player.single_mut() {
         if let Ok(areas) = areas.single() {
             if let Some(cached_area) = &*cache {
-                if checkpoint.distance(&coordinates) > 5. {
+                if checkpoint.0.distance(&coordinates) > 5. {
                     if let Some(current_area) = areas.iter().find(|a| a.contains(coordinates)) {
                         if cached_area != current_area {
                             *cache = Some(current_area.clone());
-                            **checkpoint = *coordinates;
+                            *checkpoint = Checkpoint(*coordinates, transform.rotation);
                         }
                     }
                 }
             } else if let Some(current_area) = areas.iter().find(|a| a.contains(coordinates)) {
                 *cache = Some(current_area.clone());
-                **checkpoint = *coordinates;
+                *checkpoint = Checkpoint(*coordinates, transform.rotation);
             }
         }
     }
@@ -1155,18 +1155,25 @@ fn tick_between_lives_timer(
     mut timer: ResMut<BetweenLivesTimer>,
     mut tts: ResMut<Tts>,
     mut state: ResMut<State<AppState>>,
-    mut player: Query<(&Player, &Lives, &Checkpoint, &mut Coordinates)>,
+    mut player: Query<(
+        &Player,
+        &Lives,
+        &Checkpoint,
+        &mut Coordinates,
+        &mut Transform,
+    )>,
 ) -> Result<(), Box<dyn Error>> {
     timer.tick(time.delta());
     if timer.finished() {
         state.pop()?;
-        if let Ok((_, lives, checkpoint, mut coordinates)) = player.single_mut() {
+        if let Ok((_, lives, checkpoint, mut coordinates, mut transform)) = player.single_mut() {
             if **lives == 0 {
                 state.overwrite_replace(AppState::GameOver)?;
             } else {
                 let life_or_lives = if **lives > 1 { "lives" } else { "life" };
                 tts.speak(format!("{} {} left.", **lives, life_or_lives), true)?;
-                **coordinates = ***checkpoint;
+                **coordinates = *checkpoint.0;
+                transform.rotation = checkpoint.1;
             }
         }
     }
