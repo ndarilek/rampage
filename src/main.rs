@@ -180,6 +180,7 @@ struct Sfx {
     bullet_wall: HandleId,
     drone: HandleId,
     exit: HandleId,
+    exit_correct: HandleId,
     level_exit: HandleId,
     life_lost: HandleId,
     player_footstep: HandleId,
@@ -205,6 +206,7 @@ impl Default for Sfx {
             bullet_wall: "sfx/bullet_wall.flac".into(),
             drone: "sfx/drone.flac".into(),
             exit: "sfx/exit.flac".into(),
+            exit_correct: "sfx/exit_correct.flac".into(),
             level_exit: "sfx/level_exit.flac".into(),
             life_lost: "sfx/life_lost.flac".into(),
             player_footstep: "sfx/player_footstep.flac".into(),
@@ -482,9 +484,9 @@ fn exit_post_processor(
             commands.entity(entity).insert(Name::new("Exit"));
             commands.entity(entity).insert(SoundIcon {
                 sound: sfx.exit,
-                gain: 0.1,
+                gain: 0.2,
                 interval: None,
-                pitch: 0.5,
+                ..Default::default()
             });
             let x = coordinates.x_i32();
             let y = coordinates.y_i32();
@@ -1024,18 +1026,25 @@ fn highlight_next_exit(
     }
 }
 
-fn next_exit_added(mut next_exit: Query<(&NextExit, &mut SoundIcon), Added<NextExit>>) {
+fn next_exit_added(
+    sfx: Res<Sfx>,
+    mut next_exit: Query<(&NextExit, &mut SoundIcon), Added<NextExit>>,
+) {
     for (_, mut icon) in next_exit.iter_mut() {
-        icon.gain = 0.5;
-        icon.pitch = 1.;
+        icon.sound = sfx.exit_correct;
+        icon.gain = 0.4;
     }
 }
 
-fn next_exit_removed(removed: RemovedComponents<NextExit>, mut icons: Query<&mut SoundIcon>) {
+fn next_exit_removed(
+    sfx: Res<Sfx>,
+    removed: RemovedComponents<NextExit>,
+    mut icons: Query<&mut SoundIcon>,
+) {
     for entity in removed.iter() {
         if let Ok(mut icon) = icons.get_component_mut::<SoundIcon>(entity) {
-            icon.gain = 0.1;
-            icon.pitch = 0.5;
+            icon.sound = sfx.exit;
+            icon.gain = 0.2;
         }
     }
 }
