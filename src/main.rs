@@ -484,7 +484,7 @@ fn exit_post_processor(
             commands.entity(entity).insert(Name::new("Exit"));
             commands.entity(entity).insert(SoundIcon {
                 sound: sfx.exit,
-                gain: 0.2,
+                gain: 0.1,
                 interval: None,
                 ..Default::default()
             });
@@ -918,7 +918,7 @@ fn bullet(
             *prev_coords = (coordinates.x(), coordinates.y());
         }
         for (_, entity, robot_coordinates) in robots.iter() {
-            if coordinates.distance(robot_coordinates) <= 0.5 {
+            if coordinates.distance(robot_coordinates) <= 0.75 {
                 if let Ok(map) = level.single() {
                     let index = robot_coordinates.to_index(map.width());
                     robot_killed.send(RobotKilled(entity, index));
@@ -1032,7 +1032,7 @@ fn next_exit_added(
 ) {
     for (_, mut icon) in next_exit.iter_mut() {
         icon.sound = sfx.exit_correct;
-        icon.gain = 0.4;
+        icon.gain = 0.3;
     }
 }
 
@@ -1044,7 +1044,7 @@ fn next_exit_removed(
     for entity in removed.iter() {
         if let Ok(mut icon) = icons.get_component_mut::<SoundIcon>(entity) {
             icon.sound = sfx.exit;
-            icon.gain = 0.2;
+            icon.gain = 0.1;
         }
     }
 }
@@ -1214,7 +1214,6 @@ fn collision(
                             {
                                 log.push("Wall! Wall! You ran into a wall!");
                             } else {
-                                println!("Ran into robot {:?}", event.entity);
                                 log.push("You ran into a very irate robot.");
                             }
                         }
