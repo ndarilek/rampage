@@ -204,7 +204,7 @@ impl Default for Sfx {
             bullet: "sfx/bullet.flac".into(),
             bullet_wall: "sfx/bullet_wall.flac".into(),
             drone: "sfx/drone.flac".into(),
-            exit: "sfx/exit.wav".into(),
+            exit: "sfx/exit.flac".into(),
             level_exit: "sfx/level_exit.flac".into(),
             life_lost: "sfx/life_lost.flac".into(),
             player_footstep: "sfx/player_footstep.flac".into(),
@@ -1026,7 +1026,7 @@ fn highlight_next_exit(
 
 fn next_exit_added(mut next_exit: Query<(&NextExit, &mut SoundIcon), Added<NextExit>>) {
     for (_, mut icon) in next_exit.iter_mut() {
-        icon.gain = 0.3;
+        icon.gain = 0.5;
         icon.pitch = 1.;
     }
 }
