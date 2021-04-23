@@ -9,7 +9,7 @@ An audio-only, _Berzerk_-like shooter for the second [No Video Jam](https://itch
 3. Either [initialize Git submodules the hard way](https://git-scm.com/book/en/v2/Git-Tools-Submodules) or clone this repository with the _--recursive_ option.
 4. Under Windows, copy the DLLs in _lib/win32_ or _lib/win64_, as appropriate, to the top-level directory.
 5. Under Linux, [install the dependencies documented here](https://github.com/bevyengine/bevy/blob/main/docs/linux_dependencies.md).
-6. Run `cargo build` to build, and `cargo run` to build and run.
+6. From the top-level directory, run `cargo build` to build, and `cargo run` to build and run. Under Windows, note that you need to execute `cargo run` from the directory containing _soft_oal.dll_.
 
 ## Sound Credits
 
