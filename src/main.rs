@@ -265,7 +265,7 @@ impl Default for PlayerBundle {
             player: Default::default(),
             listener: Default::default(),
             coordinates: Default::default(),
-            rotation_speed: RotationSpeed(Angle::Degrees(45.)),
+            rotation_speed: RotationSpeed(Angle::Degrees(60.)),
             transform: Default::default(),
             global_transform: Default::default(),
             speed: Default::default(),
@@ -1066,7 +1066,7 @@ fn bullet(
             *prev_coords = (coordinates.x(), coordinates.y());
         }
         for (_, entity, robot_coordinates) in robots.iter() {
-            if coordinates.distance(robot_coordinates) <= 1. {
+            if coordinates.distance(robot_coordinates) <= 0.5 {
                 if let Ok(map) = level.single() {
                     let index = robot_coordinates.to_index(map.width());
                     robot_killed.send(RobotKilled(entity, index));
