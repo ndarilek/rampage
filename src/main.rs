@@ -191,6 +191,7 @@ struct Sfx {
     robot1: HandleId,
     robot2: HandleId,
     shoot: HandleId,
+    wall_power_up: HandleId,
 }
 
 impl Default for Sfx {
@@ -217,6 +218,7 @@ impl Default for Sfx {
             robot1: "sfx/robot1.flac".into(),
             robot2: "sfx/robot2.flac".into(),
             shoot: "sfx/shoot.flac".into(),
+            wall_power_up: "sfx/wall_power_up.flac".into(),
         }
     }
 }
@@ -1213,7 +1215,7 @@ fn collision(
             let current_state = state.current();
             if *current_state == AppState::InGame {
                 if event.entity == player_entity {
-                    for (_, map) in map.iter() {
+                    for (map_entity, map) in map.iter() {
                         if map.base.at(
                             event.coordinates.x() as usize,
                             event.coordinates.y() as usize,
@@ -1223,6 +1225,17 @@ fn collision(
                                 commands
                                     .entity(player_entity)
                                     .insert(WallCollisionTimer::default());
+                                let buffer = buffers.get_handle(sfx.wall_power_up);
+                                let sound_id = commands
+                                    .spawn()
+                                    .insert(Sound {
+                                        buffer,
+                                        state: SoundState::Playing,
+                                        gain: 0.3,
+                                        ..Default::default()
+                                    })
+                                    .id();
+                                commands.entity(map_entity).push_children(&[sound_id]);
                             }
                         } else {
                             **lives -= 1;
