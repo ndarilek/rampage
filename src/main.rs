@@ -1,6 +1,10 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
-use std::{collections::HashMap, error::Error, f32::consts::PI};
+use std::{
+    collections::{HashMap, HashSet},
+    error::Error,
+    f32::consts::PI,
+};
 
 use bevy::{
     asset::{HandleId, LoadState},
@@ -15,6 +19,7 @@ use derive_more::{Deref, DerefMut};
 use mapgen::{MapBuilder, TileType};
 use rand::prelude::*;
 
+mod behavior;
 #[macro_use]
 mod core;
 mod error;
@@ -27,6 +32,7 @@ mod sound;
 mod visibility;
 
 use crate::{
+    behavior::PursueWhenVisible,
     core::{Angle, Area, Coordinates, Player, PointLike},
     error::error_handler,
     exploration::Mappable,
@@ -37,7 +43,7 @@ use crate::{
         RotationSpeed, Speed, Velocity,
     },
     pathfinding::find_path,
-    sound::{Footstep, FootstepBundle, SoundIcon},
+    sound::{Footstep, FootstepBundle, SoundIcon, SoundIconBundle},
     visibility::{BlocksVisibility, Viewshed, VisibilityBlocked},
 };
 
@@ -63,6 +69,7 @@ fn main() {
         .add_plugin(bevy_openal::OpenAlPlugin)
         .add_plugin(bevy_tts::TtsPlugin)
         .add_plugin(core::CorePlugin)
+        .add_plugin(behavior::BehaviorPlugin)
         .add_plugin(exploration::ExplorationPlugin)
         .add_plugin(log::LogPlugin)
         .insert_resource(MapConfig {
@@ -99,7 +106,7 @@ fn main() {
                 .after(HIGHLIGHT_NEXT_EXIT_LABEL),
         )
         .add_system(spawn_robots.system())
-        .add_system_to_stage(CoreStage::PreUpdate, robot_killed.system())
+        .add_system(robot_killed.system())
         .add_system(spawn_ambience.system())
         .add_system(spawn_level_exit.system())
         .add_system(position_player_at_start.system())
@@ -512,7 +519,6 @@ struct RobotBundle {
     viewshed: Viewshed,
     blocks_visibility: BlocksVisibility,
     blocks_motion: BlocksMotion,
-    sound_icon: SoundIcon,
 }
 
 fn spawn_robots(
@@ -520,6 +526,7 @@ fn spawn_robots(
     sfx: Res<Sfx>,
     level: Query<&Level>,
     map: Query<(Entity, &Map, &Areas), Added<Areas>>,
+    player: Query<(&Player, Entity)>,
 ) {
     if let Ok(level) = level.single() {
         if let Ok((entity, map, areas)) = map.single() {
@@ -559,42 +566,47 @@ fn spawn_robots(
                     } else {
                         sfx.robot2
                     };
-                    let entity_id = commands
-                        .spawn()
-                        .insert_bundle(RobotBundle {
-                            robot: Robot,
-                            coordinates: robot_coords.into(),
-                            transform: Default::default(),
-                            global_transform: Default::default(),
-                            speed: Default::default(),
-                            max_speed: MaxSpeed(2.),
-                            velocity: Default::default(),
-                            name: Name::new("Robot"),
-                            viewshed: Viewshed {
-                                range: 16,
-                                ..Default::default()
-                            },
-                            blocks_visibility: Default::default(),
-                            blocks_motion: Default::default(),
-                            sound_icon: SoundIcon {
-                                sound,
-                                gain: 0.1,
-                                ..Default::default()
-                            },
-                        })
-                        .with_children(|parent| {
-                            parent.spawn().insert_bundle(FootstepBundle {
-                                footstep: Footstep {
-                                    sound: sfx.robot_footstep,
-                                    step_length: 2.,
-                                    gain: 0.3,
-                                    pitch_variation: None,
+                    if let Ok((_, player_entity)) = player.single() {
+                        let entity_id = commands
+                            .spawn()
+                            .insert_bundle(RobotBundle {
+                                robot: Robot,
+                                coordinates: robot_coords.into(),
+                                transform: Default::default(),
+                                global_transform: Default::default(),
+                                speed: Default::default(),
+                                max_speed: MaxSpeed(2.),
+                                velocity: Default::default(),
+                                name: Name::new("Robot"),
+                                viewshed: Viewshed {
+                                    range: 16,
+                                    ..Default::default()
                                 },
-                                ..Default::default()
-                            });
-                        })
-                        .id();
-                    commands.entity(entity).push_children(&[entity_id]);
+                                blocks_visibility: Default::default(),
+                                blocks_motion: Default::default(),
+                            })
+                            .insert(PursueWhenVisible(player_entity))
+                            .with_children(|parent| {
+                                parent.spawn().insert_bundle(FootstepBundle {
+                                    footstep: Footstep {
+                                        sound: sfx.robot_footstep,
+                                        step_length: 2.,
+                                        gain: 0.7,
+                                        pitch_variation: None,
+                                    },
+                                    ..Default::default()
+                                });
+                                parent.spawn().insert_bundle(SoundIconBundle {
+                                    sound_icon: SoundIcon {
+                                        sound,
+                                        ..Default::default()
+                                    },
+                                    ..Default::default()
+                                });
+                            })
+                            .id();
+                        commands.entity(entity).push_children(&[entity_id]);
+                    }
                     spawned_robots += 1;
                 }
             }
@@ -610,26 +622,30 @@ fn robot_killed(
     sfx: Res<Sfx>,
     mut motion_blocked: Query<&mut MotionBlocked>,
     mut visibility_blocked: Query<&mut VisibilityBlocked>,
+    mut killed: Local<HashSet<Entity>>,
 ) {
     for RobotKilled(entity, index) in events.iter() {
-        commands.entity(*entity).despawn_recursive();
-        if let Ok((entity, _)) = level.single() {
-            let id = commands
-                .spawn()
-                .insert(Sound {
-                    buffer: buffers.get_handle(sfx.robot_explode),
-                    state: SoundState::Playing,
-                    gain: 0.8,
-                    ..Default::default()
-                })
-                .id();
-            commands.entity(entity).push_children(&[id]);
-        }
-        if let Ok(mut motion_blocked) = motion_blocked.single_mut() {
-            motion_blocked[*index] = false;
-        }
-        if let Ok(mut visibility_blocked) = visibility_blocked.single_mut() {
-            visibility_blocked[*index] = false;
+        if !killed.contains(&entity) {
+            commands.entity(*entity).despawn_recursive();
+            if let Ok((entity, _)) = level.single() {
+                let id = commands
+                    .spawn()
+                    .insert(Sound {
+                        buffer: buffers.get_handle(sfx.robot_explode),
+                        state: SoundState::Playing,
+                        gain: 0.9,
+                        ..Default::default()
+                    })
+                    .id();
+                commands.entity(entity).push_children(&[id]);
+            }
+            if let Ok(mut motion_blocked) = motion_blocked.single_mut() {
+                motion_blocked[*index] = false;
+            }
+            if let Ok(mut visibility_blocked) = visibility_blocked.single_mut() {
+                visibility_blocked[*index] = false;
+            }
+            killed.insert(*entity);
         }
     }
 }
