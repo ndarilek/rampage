@@ -184,6 +184,12 @@ fn sound_icon(
                     if let Some(children) = children {
                         if let Some(child) = children.get(0) {
                             if let Ok(mut sound) = sounds.get_mut(*child) {
+                                let buffer = asset_server.get_handle(icon.sound);
+                                if sound.buffer != buffer {
+                                    sound.stop();
+                                    sound.buffer = buffer;
+                                    sound.play();
+                                }
                                 sound.gain = icon.gain;
                                 sound.pitch = icon.pitch;
                             }
