@@ -180,6 +180,7 @@ struct Sfx {
     level_exit: HandleId,
     life_lost: HandleId,
     player_footstep: HandleId,
+    robot_explode: HandleId,
     robot_footstep: HandleId,
     robot1: HandleId,
     robot2: HandleId,
@@ -204,6 +205,7 @@ impl Default for Sfx {
             level_exit: "sfx/level_exit.flac".into(),
             life_lost: "sfx/life_lost.flac".into(),
             player_footstep: "sfx/player_footstep.flac".into(),
+            robot_explode: "sfx/robot_explode.flac".into(),
             robot_footstep: "sfx/robot_footstep.flac".into(),
             robot1: "sfx/robot1.flac".into(),
             robot2: "sfx/robot2.flac".into(),
@@ -769,12 +771,26 @@ fn pursue_player(
 fn robot_killed(
     mut commands: Commands,
     mut events: EventReader<RobotKilled>,
+    level: Query<(Entity, &Map)>,
+    buffers: Res<Assets<Buffer>>,
+    sfx: Res<Sfx>,
     mut motion_blocked: Query<&mut MotionBlocked>,
     mut visibility_blocked: Query<&mut VisibilityBlocked>,
 ) {
     for RobotKilled(entity, index) in events.iter() {
-        println!("Killed {:?}", entity);
         commands.entity(*entity).despawn_recursive();
+        if let Ok((entity, _)) = level.single() {
+            let id = commands
+                .spawn()
+                .insert(Sound {
+                    buffer: buffers.get_handle(sfx.robot_explode),
+                    state: SoundState::Playing,
+                    gain: 0.8,
+                    ..Default::default()
+                })
+                .id();
+            commands.entity(entity).push_children(&[id]);
+        }
         if let Ok(mut motion_blocked) = motion_blocked.single_mut() {
             motion_blocked[*index] = false;
         }
