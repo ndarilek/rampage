@@ -77,6 +77,7 @@ fn main() {
         .add_plugin(sound::SoundPlugin)
         .add_plugin(visibility::VisibilityPlugin)
         .add_event::<Reset>()
+        .add_event::<RobotKilled>()
         .add_state(AppState::Loading)
         .init_resource::<AssetHandles>()
         .init_resource::<Sfx>()
@@ -102,6 +103,7 @@ fn main() {
         .add_system(spawn_robots.system())
         .add_system(sees_player_scorer.system())
         .add_system(pursue_player.system())
+        .add_system_to_stage(CoreStage::PreUpdate, robot_killed.system())
         .add_system(spawn_ambience.system())
         .add_system(spawn_level_exit.system())
         .add_system(position_player_at_start.system())
@@ -764,6 +766,24 @@ fn pursue_player(
     }
 }
 
+fn robot_killed(
+    mut commands: Commands,
+    mut events: EventReader<RobotKilled>,
+    mut motion_blocked: Query<&mut MotionBlocked>,
+    mut visibility_blocked: Query<&mut VisibilityBlocked>,
+) {
+    for RobotKilled(entity, index) in events.iter() {
+        println!("Killed {:?}", entity);
+        commands.entity(*entity).despawn_recursive();
+        if let Ok(mut motion_blocked) = motion_blocked.single_mut() {
+            motion_blocked[*index] = false;
+        }
+        if let Ok(mut visibility_blocked) = visibility_blocked.single_mut() {
+            visibility_blocked[*index] = false;
+        }
+    }
+}
+
 fn spawn_ambience(
     mut commands: Commands,
     sfx: Res<Sfx>,
@@ -1007,6 +1027,9 @@ fn bullet(
     mut commands: Commands,
     mut bullets: Query<(&Bullet, Entity, &Coordinates, &ShotRange, &mut Sound)>,
     mut active_bullets: Local<HashMap<Entity, ((f32, f32), f32)>>,
+    robots: Query<(&Robot, Entity, &Coordinates)>,
+    level: Query<&Map>,
+    mut robot_killed: EventWriter<RobotKilled>,
 ) {
     for (_, entity, coordinates, range, mut sound) in bullets.iter_mut() {
         if !active_bullets.contains_key(&entity) {
@@ -1025,6 +1048,16 @@ fn bullet(
             }
             sound.pitch = ratio;
             *prev_coords = (coordinates.x(), coordinates.y());
+        }
+        for (_, entity, robot_coordinates) in robots.iter() {
+            if coordinates.distance(robot_coordinates) <= 1. {
+                if let Ok(map) = level.single() {
+                    let index = robot_coordinates.to_index(map.width());
+                    robot_killed.send(RobotKilled(entity, index));
+                }
+                remove = true;
+                break;
+            }
         }
         if remove {
             active_bullets.remove(&entity);
@@ -1234,12 +1267,16 @@ fn tick_between_lives_timer(
     Ok(())
 }
 
+struct RobotKilled(Entity, usize);
+
 fn collision(
     mut commands: Commands,
     buffers: Res<Assets<Buffer>>,
     sfx: Res<Sfx>,
     mut collisions: EventReader<Collision>,
     bullets: Query<&Bullet>,
+    robots: Query<(&Robot, Entity, &Coordinates)>,
+    mut robot_killed: EventWriter<RobotKilled>,
     mut player: Query<(Entity, &Player, &mut Lives)>,
     state: Res<State<AppState>>,
     mut log: Query<&mut Log>,
@@ -1269,6 +1306,12 @@ fn collision(
                         })
                         .id();
                     commands.entity(entity).push_children(&[zap]);
+                } else {
+                    for (_, entity, coordinates) in robots.iter() {
+                        if event.coordinates.i32() == coordinates.i32() {
+                            robot_killed.send(RobotKilled(entity, event.index));
+                        }
+                    }
                 }
             }
             commands.entity(event.entity).despawn_recursive();
@@ -1289,6 +1332,7 @@ fn collision(
                             {
                                 log.push("Wall! Wall! You ran into a wall!");
                             } else {
+                                println!("Ran into robot {:?}", event.entity);
                                 log.push("You ran into a very irate robot.");
                             }
                         }
