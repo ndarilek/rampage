@@ -605,9 +605,9 @@ fn spawn_robots(
                                 },
                                 blocks_visibility: Default::default(),
                                 blocks_motion: Default::default(),
-                                shot_timer: ShotTimer(Timer::from_seconds(10., false)),
+                                shot_timer: ShotTimer(Timer::from_seconds(5., false)),
                                 shot_range: ShotRange(16),
-                                shot_speed: ShotSpeed(4),
+                                shot_speed: ShotSpeed(8),
                             })
                             .insert(PursueWhenVisible(player_entity))
                             .with_children(|parent| {
@@ -662,7 +662,7 @@ fn robot_killed(
                             gain: 3.,
                             ..Default::default()
                         })
-                        .insert(transform.clone())
+                        .insert(*transform)
                         .id();
                     commands.entity(entity).push_children(&[id]);
                 }
@@ -847,12 +847,11 @@ fn snap(input: Res<InputMap<String>>, mut transform: Query<(&Player, &mut Transf
     }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
-struct Bullet;
+#[derive(Clone, Copy, Debug)]
+struct Bullet(Entity);
 
 #[derive(Bundle, Default)]
 struct BulletBundle {
-    bullet: Bullet,
     coordinates: Coordinates,
     range: ShotRange,
     velocity: Velocity,
@@ -867,6 +866,7 @@ fn shoot(
     input: Res<InputMap<String>>,
     mut player: Query<(
         &Player,
+        Entity,
         &Coordinates,
         &Transform,
         &mut ShotTimer,
@@ -877,11 +877,12 @@ fn shoot(
     sfx: Res<Sfx>,
     buffers: Res<Assets<Buffer>>,
 ) {
-    if let Ok((_, coordinates, transform, mut timer, shot_range, shot_speed)) = player.single_mut()
+    if let Ok((_, player_entity, coordinates, transform, mut timer, shot_range, shot_speed)) =
+        player.single_mut()
     {
         timer.tick(time.delta());
         if input.just_active(SHOOT) && timer.finished() {
-            if let Ok((entity, _)) = level.single() {
+            if let Ok((level_entity, _)) = level.single() {
                 let shot_sound = commands
                     .spawn()
                     .insert(Sound {
@@ -896,6 +897,7 @@ fn shoot(
                 let velocity = Velocity(Vec2::new(velocity.x, velocity.y));
                 let bullet = commands
                     .spawn()
+                    .insert(Bullet(player_entity))
                     .insert_bundle(BulletBundle {
                         coordinates: *coordinates,
                         range: *shot_range,
@@ -910,7 +912,9 @@ fn shoot(
                         ..Default::default()
                     })
                     .id();
-                commands.entity(entity).push_children(&[shot_sound, bullet]);
+                commands
+                    .entity(level_entity)
+                    .push_children(&[shot_sound, bullet]);
             }
             timer.reset();
         }
@@ -929,34 +933,60 @@ fn robot_shoot(
         &ShotRange,
         &ShotSpeed,
     )>,
-    player: Query<(&Player, Entity, &Coordinates)>,
+    player: Query<(&Player, &Coordinates)>,
     level: Query<(Entity, &Map)>,
     buffers: Res<Assets<Buffer>>,
     sfx: Res<Sfx>,
 ) {
     for (_, robot_entity, robot_coords, mut timer, viewshed, range, speed) in robots.iter_mut() {
-        timer.tick(time.delta());
-        if let Ok((_, player_entity, player_coordinates)) = player.single() {
-            if viewshed.is_visible(player_coordinates) && timer.finished() {
-                if let Ok((level_entity, _)) = level.single() {
-                    let transform = Transform::from_translation(Vec3::new(
-                        robot_coords.x(),
-                        robot_coords.y(),
-                        0.,
-                    ));
-                    let buffer = buffers.get_handle(sfx.robot_shoot);
-                    let id = commands
-                        .spawn()
-                        .insert(Sound {
-                            buffer,
-                            state: SoundState::Playing,
-                            ..Default::default()
-                        })
-                        .insert(transform)
-                        .id();
-                    commands.entity(level_entity).push_children(&[id]);
+        if let Ok((_, player_coords)) = player.single() {
+            if viewshed.is_visible(player_coords) {
+                timer.tick(time.delta());
+                if timer.finished() {
+                    if let Ok((level_entity, _)) = level.single() {
+                        let transform = Transform::from_translation(Vec3::new(
+                            robot_coords.x(),
+                            robot_coords.y(),
+                            0.,
+                        ));
+                        let buffer = buffers.get_handle(sfx.robot_shoot);
+                        let shot_sound = commands
+                            .spawn()
+                            .insert(Sound {
+                                buffer,
+                                state: SoundState::Playing,
+                                ..Default::default()
+                            })
+                            .insert(transform)
+                            .id();
+                        let bearing = robot_coords.bearing(player_coords);
+                        let x = bearing.cos();
+                        let y = bearing.sin();
+                        let velocity = Vec2::new(x, y) * (**speed as f32);
+                        let velocity = Velocity(velocity);
+                        let bullet = commands
+                            .spawn()
+                            .insert(Bullet(robot_entity))
+                            .insert_bundle(BulletBundle {
+                                coordinates: *robot_coords,
+                                range: *range,
+                                velocity,
+                                sound: Sound {
+                                    buffer: buffers.get_handle(sfx.bullet),
+                                    state: SoundState::Playing,
+                                    gain: 0.4,
+                                    looping: true,
+                                    ..Default::default()
+                                },
+                                ..Default::default()
+                            })
+                            .id();
+                        commands
+                            .entity(level_entity)
+                            .push_children(&[shot_sound, bullet]);
+                    }
+                    timer.reset();
                 }
-                timer.reset();
             }
         }
     }
@@ -969,8 +999,10 @@ fn bullet(
     robots: Query<(&Robot, Entity, &Coordinates)>,
     level: Query<&Map>,
     mut robot_killed: EventWriter<RobotKilled>,
+    player: Query<(&Player, Entity, &Coordinates)>,
+    mut log: Query<&mut Log>,
 ) {
-    for (_, entity, coordinates, range, mut sound) in bullets.iter_mut() {
+    for (bullet, entity, coordinates, range, mut sound) in bullets.iter_mut() {
         if !active_bullets.contains_key(&entity) {
             active_bullets.insert(entity, ((coordinates.x(), coordinates.y()), 0.));
         }
@@ -988,8 +1020,9 @@ fn bullet(
             sound.pitch = ratio;
             *prev_coords = (coordinates.x(), coordinates.y());
         }
+        let Bullet(owner) = bullet;
         for (_, entity, robot_coordinates) in robots.iter() {
-            if coordinates.distance(robot_coordinates) <= 0.75 {
+            if *owner != entity && coordinates.distance(robot_coordinates) <= 1. {
                 if let Ok(map) = level.single() {
                     let index = robot_coordinates.to_index(map.width());
                     robot_killed.send(RobotKilled(entity, index));
@@ -998,8 +1031,17 @@ fn bullet(
                 break;
             }
         }
+        if let Ok((_, entity, player_coordinates)) = player.single() {
+            if *owner != entity && coordinates.distance(player_coordinates) <= 1. {
+                if let Ok(mut log) = log.single_mut() {
+                    log.push("Ouch!");
+                }
+                remove = true;
+            }
+        }
         if remove {
             active_bullets.remove(&entity);
+            commands.entity(entity).despawn_recursive();
         }
     }
 }
@@ -1228,8 +1270,6 @@ fn collision(
     sfx: Res<Sfx>,
     mut collisions: EventReader<Collision>,
     bullets: Query<&Bullet>,
-    robots: Query<(&Robot, Entity, &Coordinates)>,
-    mut robot_killed: EventWriter<RobotKilled>,
     mut player: Query<(Entity, &Player, &mut Lives, Option<&WallCollisionTimer>)>,
     state: Res<State<AppState>>,
     mut log: Query<&mut Log>,
@@ -1237,6 +1277,7 @@ fn collision(
 ) {
     for event in collisions.iter() {
         if bullets.get(event.entity).is_ok() {
+            println!("Bullet collision");
             if let Ok((entity, map)) = map.single() {
                 if map.base.at(
                     event.coordinates.x() as usize,
@@ -1259,12 +1300,6 @@ fn collision(
                         })
                         .id();
                     commands.entity(entity).push_children(&[zap]);
-                } else {
-                    for (_, entity, coordinates) in robots.iter() {
-                        if event.coordinates.i32() == coordinates.i32() {
-                            robot_killed.send(RobotKilled(entity, event.index));
-                        }
-                    }
                 }
             }
             commands.entity(event.entity).despawn_recursive();
