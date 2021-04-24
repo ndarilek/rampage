@@ -343,12 +343,14 @@ fn setup(
             GamepadAxisDirection::LeftStickYPositive,
             0.5,
         )
+        .bind(navigation::ACTION_FORWARD, GamepadButtonType::DPadUp)
         .bind(navigation::ACTION_BACKWARD, KeyCode::Down)
         .bind_with_deadzone(
             navigation::ACTION_BACKWARD,
             GamepadAxisDirection::LeftStickYNegative,
             0.5,
         )
+        .bind(navigation::ACTION_BACKWARD, GamepadButtonType::DPadDown)
         .bind(
             navigation::ACTION_LEFT,
             vec![KeyCode::LShift, KeyCode::Left],
@@ -381,23 +383,35 @@ fn setup(
             GamepadAxisDirection::RightStickXNegative,
             0.5,
         )
+        .bind(navigation::ACTION_ROTATE_LEFT, GamepadButtonType::DPadLeft)
         .bind(navigation::ACTION_ROTATE_RIGHT, KeyCode::Right)
         .bind_with_deadzone(
             navigation::ACTION_ROTATE_RIGHT,
             GamepadAxisDirection::RightStickXPositive,
             0.5,
         )
+        .bind(
+            navigation::ACTION_ROTATE_RIGHT,
+            GamepadButtonType::DPadRight,
+        )
         .bind(SPEAK_COORDINATES, KeyCode::C)
+        .bind(SPEAK_COORDINATES, GamepadButtonType::LeftThumb)
         .bind(SPEAK_DIRECTION, KeyCode::D)
+        .bind(SPEAK_DIRECTION, GamepadButtonType::RightThumb)
         .bind(SPEAK_HEALTH, KeyCode::H)
         .bind(SPEAK_LEVEL, KeyCode::L)
         .bind(SPEAK_ROBOT_COUNT, KeyCode::R)
         .bind(SNAP_LEFT, vec![KeyCode::LControl, KeyCode::Left])
         .bind(SNAP_LEFT, vec![KeyCode::RControl, KeyCode::Left])
+        .bind(SNAP_LEFT, GamepadButtonType::LeftTrigger)
         .bind(SNAP_RIGHT, vec![KeyCode::LControl, KeyCode::Right])
         .bind(SNAP_RIGHT, vec![KeyCode::RControl, KeyCode::Right])
+        .bind(SNAP_RIGHT, GamepadButtonType::RightTrigger)
         .bind(SHOOT, KeyCode::Space)
-        .bind(CONTINUE, KeyCode::Return);
+        .bind(SHOOT, GamepadButtonType::LeftTrigger2)
+        .bind(SHOOT, GamepadButtonType::RightTrigger2)
+        .bind(CONTINUE, KeyCode::Return)
+        .bind(CONTINUE, GamepadButtonType::South);
     Ok(())
 }
 
