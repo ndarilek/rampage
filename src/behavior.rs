@@ -64,11 +64,20 @@ fn pursue_in_area(
 
 fn pursue_when_visible(
     mut commands: Commands,
-    mut pursuer: Query<(Entity, &PursueWhenVisible, &Viewshed, &mut Speed, &MaxSpeed)>,
+    mut pursuer: Query<(
+        Entity,
+        &PursueWhenVisible,
+        &Coordinates,
+        &Viewshed,
+        &mut Speed,
+        &MaxSpeed,
+    )>,
     coordinates: Query<&Coordinates>,
     mut cache: Local<HashMap<Entity, (i32, i32)>>,
 ) {
-    for (pursuer_entity, pursuing, viewshed, mut speed, max_speed) in pursuer.iter_mut() {
+    for (pursuer_entity, pursuing, pursuer_coordinates, viewshed, mut speed, max_speed) in
+        pursuer.iter_mut()
+    {
         if let Ok(pursued_coordinates) = coordinates.get(**pursuing) {
             let mut update_destination = false;
             if !cache.contains_key(&**pursuing) {
@@ -81,7 +90,11 @@ fn pursue_when_visible(
                     }
                 }
             }
-            if viewshed.is_visible(pursued_coordinates) && update_destination {
+            if pursuer_coordinates.distance_squared(pursued_coordinates)
+                <= viewshed.range.pow(2) as f32
+                && viewshed.is_visible(pursued_coordinates)
+                && update_destination
+            {
                 commands
                     .entity(pursuer_entity)
                     .insert(Destination(pursued_coordinates.i32()));
