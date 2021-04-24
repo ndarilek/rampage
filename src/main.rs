@@ -617,21 +617,29 @@ fn spawn_robots(
                     all_robot_coords.push(robot_coords);
                     if let Some(robot_type) = robot_types.pop() {
                         let name;
+                        let max_speed;
+                        let visibility_range;
                         let sound;
                         match robot_type {
                             RobotType::Dumbass => {
                                 dumbass_count += 1;
                                 name = Name::new(format!("Dumbass robot {}", dumbass_count));
+                                max_speed = MaxSpeed(2.);
+                                visibility_range = 8;
                                 sound = sfx.robot_dumbass;
                             }
                             RobotType::Jackass => {
                                 jackass_count += 1;
                                 name = Name::new(format!("Jackass robot {}", jackass_count));
+                                max_speed = MaxSpeed(4.);
+                                visibility_range = 16;
                                 sound = sfx.robot_jackass;
                             }
                             RobotType::Badass => {
                                 badass_count += 1;
                                 name = Name::new(format!("Badass robot {}", badass_count));
+                                max_speed = MaxSpeed(4.);
+                                visibility_range = 24;
                                 sound = sfx.robot_badass;
                             }
                         };
@@ -644,11 +652,11 @@ fn spawn_robots(
                                     transform: Default::default(),
                                     global_transform: Default::default(),
                                     speed: Default::default(),
-                                    max_speed: MaxSpeed(2.),
+                                    max_speed,
                                     velocity: Default::default(),
                                     name,
                                     viewshed: Viewshed {
-                                        range: 16,
+                                        range: visibility_range,
                                         ..Default::default()
                                     },
                                     blocks_visibility: Default::default(),
