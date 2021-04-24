@@ -1158,7 +1158,7 @@ fn highlight_next_exit(
                     for step in path {
                         let step: Coordinates = step.into();
                         for (entity, _, coordinates) in exits.iter() {
-                            if step.distance(&coordinates) <= 4. {
+                            if step.distance(&coordinates) <= 3. {
                                 commands.entity(entity).insert(NextExit);
                                 return;
                             }
