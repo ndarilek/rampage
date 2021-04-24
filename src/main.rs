@@ -1443,14 +1443,24 @@ fn wall_uncollide(
 }
 
 fn level_up(
-    player: Query<(&Player, &Coordinates), Changed<Coordinates>>,
+    player: Query<(&Player, &Coordinates, &Viewshed), Changed<Coordinates>>,
     exit: Query<(&LevelExit, &Coordinates)>,
     mut state: ResMut<State<AppState>>,
+    robot_coordinates: Query<(&Robot, &Coordinates)>,
 ) -> Result<(), Box<dyn Error>> {
-    for (_, player_coordinates) in player.iter() {
+    for (_, player_coordinates, viewshed) in player.iter() {
         for (_, exit_coordinates) in exit.iter() {
             if player_coordinates.distance(exit_coordinates) < 5. {
-                state.push(AppState::LevelUp)?;
+                let mut can_advance = true;
+                for (_, robot_coordinates) in robot_coordinates.iter() {
+                    if viewshed.is_visible(robot_coordinates) {
+                        can_advance = false;
+                        break;
+                    }
+                }
+                if can_advance {
+                    state.push(AppState::LevelUp)?;
+                }
             }
         }
     }
