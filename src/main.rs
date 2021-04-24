@@ -642,6 +642,7 @@ fn robot_killed(
     mut commands: Commands,
     mut events: EventReader<RobotKilled>,
     level: Query<(Entity, &Map)>,
+    transforms: Query<&Transform>,
     buffers: Res<Assets<Buffer>>,
     sfx: Res<Sfx>,
     mut motion_blocked: Query<&mut MotionBlocked>,
@@ -652,16 +653,19 @@ fn robot_killed(
         if !killed.contains(&entity) {
             commands.entity(*entity).despawn_recursive();
             if let Ok((entity, _)) = level.single() {
-                let id = commands
-                    .spawn()
-                    .insert(Sound {
-                        buffer: buffers.get_handle(sfx.robot_explode),
-                        state: SoundState::Playing,
-                        gain: 0.9,
-                        ..Default::default()
-                    })
-                    .id();
-                commands.entity(entity).push_children(&[id]);
+                if let Ok(transform) = transforms.get(entity) {
+                    let id = commands
+                        .spawn()
+                        .insert(Sound {
+                            buffer: buffers.get_handle(sfx.robot_explode),
+                            state: SoundState::Playing,
+                            gain: 3.,
+                            ..Default::default()
+                        })
+                        .insert(transform.clone())
+                        .id();
+                    commands.entity(entity).push_children(&[id]);
+                }
             }
             if let Ok(mut motion_blocked) = motion_blocked.single_mut() {
                 motion_blocked[*index] = false;
