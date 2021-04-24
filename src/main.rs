@@ -115,6 +115,7 @@ fn main() {
                 .with_system(speak_info.system().chain(error_handler.system()))
                 .with_system(snap.system())
                 .with_system(shoot.system())
+                .with_system(robot_shoot.system())
                 .with_system(bullet.system())
                 .with_system(wall_collide.system())
                 .with_system(wall_uncollide.system())
@@ -186,11 +187,12 @@ struct Sfx {
     level_exit: HandleId,
     life_lost: HandleId,
     player_footstep: HandleId,
+    player_shoot: HandleId,
     robot_explode: HandleId,
     robot_footstep: HandleId,
+    robot_shoot: HandleId,
     robot1: HandleId,
     robot2: HandleId,
-    shoot: HandleId,
     wall_power_up: HandleId,
 }
 
@@ -213,11 +215,12 @@ impl Default for Sfx {
             level_exit: "sfx/level_exit.flac".into(),
             life_lost: "sfx/life_lost.flac".into(),
             player_footstep: "sfx/player_footstep.flac".into(),
+            player_shoot: "sfx/player_shoot.flac".into(),
             robot_explode: "sfx/robot_explode.flac".into(),
             robot_footstep: "sfx/robot_footstep.flac".into(),
+            robot_shoot: "sfx/robot_shoot.flac".into(),
             robot1: "sfx/robot1.flac".into(),
             robot2: "sfx/robot2.flac".into(),
-            shoot: "sfx/shoot.flac".into(),
             wall_power_up: "sfx/wall_power_up.flac".into(),
         }
     }
@@ -534,6 +537,9 @@ struct RobotBundle {
     viewshed: Viewshed,
     blocks_visibility: BlocksVisibility,
     blocks_motion: BlocksMotion,
+    shot_timer: ShotTimer,
+    shot_range: ShotRange,
+    shot_speed: ShotSpeed,
 }
 
 fn spawn_robots(
@@ -599,6 +605,9 @@ fn spawn_robots(
                                 },
                                 blocks_visibility: Default::default(),
                                 blocks_motion: Default::default(),
+                                shot_timer: ShotTimer(Timer::from_seconds(10., false)),
+                                shot_range: ShotRange(16),
+                                shot_speed: ShotSpeed(4),
                             })
                             .insert(PursueWhenVisible(player_entity))
                             .with_children(|parent| {
@@ -872,7 +881,7 @@ fn shoot(
                 let shot_sound = commands
                     .spawn()
                     .insert(Sound {
-                        buffer: buffers.get_handle(sfx.shoot),
+                        buffer: buffers.get_handle(sfx.player_shoot),
                         state: SoundState::Playing,
                         gain: 0.5,
                         ..Default::default()
@@ -900,6 +909,51 @@ fn shoot(
                 commands.entity(entity).push_children(&[shot_sound, bullet]);
             }
             timer.reset();
+        }
+    }
+}
+
+fn robot_shoot(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut robots: Query<(
+        &Robot,
+        Entity,
+        &Coordinates,
+        &mut ShotTimer,
+        &Viewshed,
+        &ShotRange,
+        &ShotSpeed,
+    )>,
+    player: Query<(&Player, Entity, &Coordinates)>,
+    level: Query<(Entity, &Map)>,
+    buffers: Res<Assets<Buffer>>,
+    sfx: Res<Sfx>,
+) {
+    for (_, robot_entity, robot_coords, mut timer, viewshed, range, speed) in robots.iter_mut() {
+        timer.tick(time.delta());
+        if let Ok((_, player_entity, player_coordinates)) = player.single() {
+            if viewshed.is_visible(player_coordinates) && timer.finished() {
+                if let Ok((level_entity, _)) = level.single() {
+                    let transform = Transform::from_translation(Vec3::new(
+                        robot_coords.x(),
+                        robot_coords.y(),
+                        0.,
+                    ));
+                    let buffer = buffers.get_handle(sfx.robot_shoot);
+                    let id = commands
+                        .spawn()
+                        .insert(Sound {
+                            buffer,
+                            state: SoundState::Playing,
+                            ..Default::default()
+                        })
+                        .insert(transform)
+                        .id();
+                    commands.entity(level_entity).push_children(&[id]);
+                }
+                timer.reset();
+            }
         }
     }
 }
