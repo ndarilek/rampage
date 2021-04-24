@@ -480,7 +480,7 @@ fn setup_level(
                 parent.spawn().insert(Sound {
                     buffer: buffers.get_handle(sfx.drone),
                     state: SoundState::Playing,
-                    gain: 0.05,
+                    gain: 0.1,
                     looping: true,
                     ..Default::default()
                 });
@@ -1216,7 +1216,7 @@ fn next_exit_added(
 ) {
     for (_, mut icon) in next_exit.iter_mut() {
         icon.sound = sfx.exit_correct;
-        icon.gain = 0.3;
+        icon.gain = 0.4;
     }
 }
 
