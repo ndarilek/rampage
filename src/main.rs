@@ -188,11 +188,12 @@ struct Sfx {
     life_lost: HandleId,
     player_footstep: HandleId,
     player_shoot: HandleId,
+    robot_badass: HandleId,
+    robot_dumbass: HandleId,
     robot_explode: HandleId,
     robot_footstep: HandleId,
+    robot_jackass: HandleId,
     robot_shoot: HandleId,
-    robot1: HandleId,
-    robot2: HandleId,
     wall_power_up: HandleId,
 }
 
@@ -216,11 +217,12 @@ impl Default for Sfx {
             life_lost: "sfx/life_lost.flac".into(),
             player_footstep: "sfx/player_footstep.flac".into(),
             player_shoot: "sfx/player_shoot.flac".into(),
+            robot_badass: "sfx/robot_badass.flac".into(),
+            robot_dumbass: "sfx/robot_dumbass.flac".into(),
             robot_explode: "sfx/robot_explode.flac".into(),
             robot_footstep: "sfx/robot_footstep.flac".into(),
+            robot_jackass: "sfx/robot_jackass.flac".into(),
             robot_shoot: "sfx/robot_shoot.flac".into(),
-            robot1: "sfx/robot1.flac".into(),
-            robot2: "sfx/robot2.flac".into(),
             wall_power_up: "sfx/wall_power_up.flac".into(),
         }
     }
@@ -520,9 +522,15 @@ fn exit_post_processor(
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Reflect)]
-#[reflect(Component)]
-struct Robot;
+#[derive(Clone, Copy, Debug)]
+enum RobotType {
+    Dumbass,
+    Jackass,
+    Badass,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct Robot(RobotType);
 
 #[derive(Bundle)]
 struct RobotBundle {
@@ -552,7 +560,10 @@ fn spawn_robots(
     if let Ok(level) = level.single() {
         if let Ok((entity, map, areas)) = map.single() {
             let total_robots = 10 + **level * 5;
+            let mut robot_types = vec![RobotType::Dumbass; total_robots as usize];
             if let Some(start) = map.start() {
+                let mut rng = thread_rng();
+                robot_types.shuffle(&mut rng);
                 let starting_area = areas.iter().find(|a| a.contains(&start)).unwrap();
                 let areas = areas
                     .iter()
@@ -560,10 +571,12 @@ fn spawn_robots(
                     .filter(|a| a != starting_area)
                     .collect::<Vec<Area>>();
                 let mut spawned_robots = 0;
-                let mut rng = thread_rng();
                 let mut candidate_areas = areas.clone();
                 candidate_areas.shuffle(&mut rng);
                 let mut all_robot_coords: Vec<(usize, usize)> = vec![];
+                let mut dumbass_count = 0;
+                let mut jackass_count = 0;
+                let mut badass_count = 0;
                 while spawned_robots < total_robots {
                     let area = candidate_areas[0].clone();
                     candidate_areas.remove(0);
@@ -582,54 +595,70 @@ fn spawn_robots(
                         );
                     }
                     all_robot_coords.push(robot_coords);
-                    let sound = if rand::random() {
-                        sfx.robot1
-                    } else {
-                        sfx.robot2
-                    };
-                    if let Ok((_, player_entity)) = player.single() {
-                        let entity_id = commands
-                            .spawn()
-                            .insert_bundle(RobotBundle {
-                                robot: Robot,
-                                coordinates: robot_coords.into(),
-                                transform: Default::default(),
-                                global_transform: Default::default(),
-                                speed: Default::default(),
-                                max_speed: MaxSpeed(2.),
-                                velocity: Default::default(),
-                                name: Name::new("Robot"),
-                                viewshed: Viewshed {
-                                    range: 16,
-                                    ..Default::default()
-                                },
-                                blocks_visibility: Default::default(),
-                                blocks_motion: Default::default(),
-                                shot_timer: ShotTimer(Timer::from_seconds(5., false)),
-                                shot_range: ShotRange(16),
-                                shot_speed: ShotSpeed(8),
-                            })
-                            .insert(PursueWhenVisible(player_entity))
-                            .with_children(|parent| {
-                                parent.spawn().insert_bundle(FootstepBundle {
-                                    footstep: Footstep {
-                                        sound: sfx.robot_footstep,
-                                        step_length: 2.,
-                                        gain: 0.7,
-                                        pitch_variation: None,
-                                    },
-                                    ..Default::default()
-                                });
-                                parent.spawn().insert_bundle(SoundIconBundle {
-                                    sound_icon: SoundIcon {
-                                        sound,
+                    if let Some(robot_type) = robot_types.pop() {
+                        let name;
+                        let sound;
+                        match robot_type {
+                            RobotType::Dumbass => {
+                                dumbass_count += 1;
+                                name = Name::new(format!("Dumbass robot {}", dumbass_count));
+                                sound = sfx.robot_dumbass;
+                            }
+                            RobotType::Jackass => {
+                                jackass_count += 1;
+                                name = Name::new(format!("Jackass robot {}", jackass_count));
+                                sound = sfx.robot_jackass;
+                            }
+                            RobotType::Badass => {
+                                badass_count += 1;
+                                name = Name::new(format!("Badass robot {}", badass_count));
+                                sound = sfx.robot_badass;
+                            }
+                        };
+                        if let Ok((_, player_entity)) = player.single() {
+                            let entity_id = commands
+                                .spawn()
+                                .insert_bundle(RobotBundle {
+                                    robot: Robot(RobotType::Jackass),
+                                    coordinates: robot_coords.into(),
+                                    transform: Default::default(),
+                                    global_transform: Default::default(),
+                                    speed: Default::default(),
+                                    max_speed: MaxSpeed(2.),
+                                    velocity: Default::default(),
+                                    name,
+                                    viewshed: Viewshed {
+                                        range: 16,
                                         ..Default::default()
                                     },
-                                    ..Default::default()
-                                });
-                            })
-                            .id();
-                        commands.entity(entity).push_children(&[entity_id]);
+                                    blocks_visibility: Default::default(),
+                                    blocks_motion: Default::default(),
+                                    shot_timer: ShotTimer(Timer::from_seconds(5., false)),
+                                    shot_range: ShotRange(16),
+                                    shot_speed: ShotSpeed(8),
+                                })
+                                .insert(PursueWhenVisible(player_entity))
+                                .with_children(|parent| {
+                                    parent.spawn().insert_bundle(FootstepBundle {
+                                        footstep: Footstep {
+                                            sound: sfx.robot_footstep,
+                                            step_length: 2.,
+                                            gain: 0.7,
+                                            pitch_variation: None,
+                                        },
+                                        ..Default::default()
+                                    });
+                                    parent.spawn().insert_bundle(SoundIconBundle {
+                                        sound_icon: SoundIcon {
+                                            sound,
+                                            ..Default::default()
+                                        },
+                                        ..Default::default()
+                                    });
+                                })
+                                .id();
+                            commands.entity(entity).push_children(&[entity_id]);
+                        }
                     }
                     spawned_robots += 1;
                 }
@@ -1277,7 +1306,6 @@ fn collision(
 ) {
     for event in collisions.iter() {
         if bullets.get(event.entity).is_ok() {
-            println!("Bullet collision");
             if let Ok((entity, map)) = map.single() {
                 if map.base.at(
                     event.coordinates.x() as usize,
