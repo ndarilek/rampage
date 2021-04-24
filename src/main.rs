@@ -559,8 +559,28 @@ fn spawn_robots(
 ) {
     if let Ok(level) = level.single() {
         if let Ok((entity, map, areas)) = map.single() {
-            let total_robots = 10 + **level * 5;
-            let mut robot_types = vec![RobotType::Dumbass; total_robots as usize];
+            let base_robots = 15;
+            let extra_robots = (**level - 1) * 10;
+            let total_robots = base_robots + extra_robots;
+            let mut robot_types = vec![RobotType::Dumbass; base_robots as usize];
+            if **level == 2 {
+                for _ in 0..6 {
+                    robot_types.push(RobotType::Dumbass);
+                }
+                for _ in 6..10 {
+                    robot_types.push(RobotType::Jackass);
+                }
+            } else if **level > 2 {
+                for _ in 0..(extra_robots as f32 * 0.4) as u32 {
+                    robot_types.push(RobotType::Dumbass);
+                }
+                for _ in 0..(extra_robots as f32 * 0.4) as u32 {
+                    robot_types.push(RobotType::Jackass);
+                }
+                for _ in 0..(extra_robots as f32 * 0.2) as u32 {
+                    robot_types.push(RobotType::Badass);
+                }
+            }
             if let Some(start) = map.start() {
                 let mut rng = thread_rng();
                 robot_types.shuffle(&mut rng);
