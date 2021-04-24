@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use bevy::prelude::*;
 use coord_2d::{Coord, Size};
@@ -216,20 +216,34 @@ fn map_visibility(
 }
 
 fn log_visible(
-    mut seen: Local<Vec<Entity>>,
+    time: Res<Time>,
+    mut seen: Local<HashSet<Entity>>,
+    mut recently_lost: Local<HashMap<Entity, Timer>>,
     mut log: Query<&mut Log>,
     viewers: Query<(&Viewshed, &Coordinates, &Player)>,
     map: Query<&Map>,
     names: Query<&Name>,
     players: Query<&Player>,
 ) {
-    let mut new_seen: Vec<Entity> = vec![];
+    for timer in recently_lost.values_mut() {
+        timer.tick(time.delta());
+    }
+    let recently_lost_clone = recently_lost.clone();
+    for (entity, timer) in recently_lost_clone.iter() {
+        if timer.finished() {
+            recently_lost.remove(&entity);
+        }
+    }
+    let mut new_seen = HashSet::new();
     if let Ok(mut log) = log.single_mut() {
         for (viewshed, coordinates, _) in viewers.iter() {
             for viewed_coordinates in &viewshed.visible {
                 for map in map.iter() {
                     let index = viewed_coordinates.to_index(map.width());
                     for entity in &map.entities[index] {
+                        if recently_lost.contains_key(&entity) {
+                            continue;
+                        }
                         if let Ok(name) = names.get(*entity) {
                             if players.get(*entity).is_err() {
                                 if !seen.contains(&*entity) {
@@ -238,13 +252,17 @@ fn log_visible(
                                         coordinates.distance_and_direction(viewed_coordinates);
                                     log.push(format!("{}: {}", name, location));
                                 }
-                                new_seen.push(*entity);
+                                new_seen.insert(*entity);
                             }
                         }
                     }
                 }
             }
         }
+    }
+    let recently_lost_entities = seen.difference(&new_seen);
+    for entity in recently_lost_entities {
+        recently_lost.insert(*entity, Timer::from_seconds(1., false));
     }
     *seen = new_seen;
 }
