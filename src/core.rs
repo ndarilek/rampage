@@ -175,6 +175,54 @@ impl Into<String> for MovementDirection {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CardinalDirection {
+    North,
+    East,
+    South,
+    West,
+}
+
+impl CardinalDirection {
+    pub fn new(heading: f32) -> Self {
+        use CardinalDirection::*;
+        let mut heading = heading;
+        while heading >= 360. {
+            heading -= 360.;
+        }
+        while heading < 0. {
+            heading += 360.;
+        }
+        match heading {
+            h if h <= 45. => East,
+            h if h <= 135. => North,
+            h if h <= 225. => West,
+            h if h <= 315. => South,
+            _ => East,
+        }
+    }
+}
+
+impl From<Angle> for CardinalDirection {
+    fn from(angle: Angle) -> Self {
+        CardinalDirection::new(angle.degrees())
+    }
+}
+
+// Converting from strings into directions doesn't make sense.
+#[allow(clippy::from_over_into)]
+impl Into<String> for CardinalDirection {
+    fn into(self) -> String {
+        use CardinalDirection::*;
+        match self {
+            North => "north".to_string(),
+            East => "east".to_string(),
+            South => "south".to_string(),
+            West => "west".to_string(),
+        }
+    }
+}
+
 pub trait PointLike {
     fn x(&self) -> f32;
 

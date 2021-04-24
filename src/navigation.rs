@@ -6,7 +6,7 @@ use bevy_tts::Tts;
 use derive_more::{Deref, DerefMut};
 
 use crate::{
-    core::{Angle, Coordinates, MovementDirection, Player, PointLike},
+    core::{Angle, CardinalDirection, Coordinates, Player, PointLike},
     error::error_handler,
     exploration::{ExplorationFocused, Exploring},
     map::{ITileType, Map},
@@ -324,7 +324,7 @@ fn add_collision_indices(
 
 fn speak_direction(
     mut tts: ResMut<Tts>,
-    mut cache: Local<HashMap<Entity, MovementDirection>>,
+    mut cache: Local<HashMap<Entity, CardinalDirection>>,
     player: Query<(Entity, &Player, &Transform), Changed<Transform>>,
 ) -> Result<(), Box<dyn Error>> {
     if let Ok((entity, _, transform)) = player.single() {
@@ -332,7 +332,7 @@ fn speak_direction(
         let yaw = Angle::Radians(forward.y.atan2(forward.x));
         if let Some(old_direction) = cache.get(&entity) {
             let old_direction = *old_direction;
-            let direction: MovementDirection = yaw.into();
+            let direction: CardinalDirection = yaw.into();
             if old_direction != direction {
                 let direction: String = direction.into();
                 tts.speak(direction, true)?;
