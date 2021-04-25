@@ -665,7 +665,7 @@ fn spawn_robots(
                                 name = Name::new(format!("Dumbass {}", dumbass_count));
                                 max_speed = MaxSpeed(2.);
                                 visibility_range = 12;
-                                shot_accuracy = ShotAccuracy(PI / 10.);
+                                shot_accuracy = ShotAccuracy(PI / 9.);
                                 sound = sfx.robot_dumbass;
                             }
                             RobotType::Jackass => {
@@ -673,7 +673,7 @@ fn spawn_robots(
                                 name = Name::new(format!("Jackass {}", jackass_count));
                                 max_speed = MaxSpeed(4.);
                                 visibility_range = 16;
-                                shot_accuracy = ShotAccuracy(PI / 12.);
+                                shot_accuracy = ShotAccuracy(PI / 10.);
                                 sound = sfx.robot_jackass;
                             }
                             RobotType::Badass => {
@@ -681,7 +681,7 @@ fn spawn_robots(
                                 name = Name::new(format!("Badass {}", badass_count));
                                 max_speed = MaxSpeed(4.);
                                 visibility_range = 24;
-                                shot_accuracy = ShotAccuracy(PI / 14.);
+                                shot_accuracy = ShotAccuracy(PI / 12.);
                                 sound = sfx.robot_badass;
                             }
                         };
