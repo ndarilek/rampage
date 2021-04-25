@@ -566,6 +566,9 @@ enum RobotType {
 #[derive(Clone, Copy, Debug)]
 struct Robot(RobotType);
 
+#[derive(Clone, Copy, Debug, Default, Deref, DerefMut)]
+struct ShotAccuracy(f32);
+
 #[derive(Bundle)]
 struct RobotBundle {
     robot: Robot,
@@ -582,6 +585,7 @@ struct RobotBundle {
     shot_timer: ShotTimer,
     shot_range: ShotRange,
     shot_speed: ShotSpeed,
+    shot_accuracy: ShotAccuracy,
 }
 
 fn spawn_robots(
@@ -653,6 +657,7 @@ fn spawn_robots(
                         let name;
                         let max_speed;
                         let visibility_range;
+                        let shot_accuracy;
                         let sound;
                         match robot_type {
                             RobotType::Dumbass => {
@@ -660,6 +665,7 @@ fn spawn_robots(
                                 name = Name::new(format!("Dumbass {}", dumbass_count));
                                 max_speed = MaxSpeed(2.);
                                 visibility_range = 8;
+                                shot_accuracy = ShotAccuracy(PI / 10.);
                                 sound = sfx.robot_dumbass;
                             }
                             RobotType::Jackass => {
@@ -667,6 +673,7 @@ fn spawn_robots(
                                 name = Name::new(format!("Jackass {}", jackass_count));
                                 max_speed = MaxSpeed(4.);
                                 visibility_range = 16;
+                                shot_accuracy = ShotAccuracy(PI / 12.);
                                 sound = sfx.robot_jackass;
                             }
                             RobotType::Badass => {
@@ -674,6 +681,7 @@ fn spawn_robots(
                                 name = Name::new(format!("Badass {}", badass_count));
                                 max_speed = MaxSpeed(4.);
                                 visibility_range = 24;
+                                shot_accuracy = ShotAccuracy(PI / 14.);
                                 sound = sfx.robot_badass;
                             }
                         };
@@ -698,6 +706,7 @@ fn spawn_robots(
                                     shot_timer: ShotTimer(Timer::from_seconds(5., false)),
                                     shot_range: ShotRange(16),
                                     shot_speed: ShotSpeed(8),
+                                    shot_accuracy,
                                 })
                                 .insert(PursueWhenVisible(player_entity))
                                 .with_children(|parent| {
@@ -764,7 +773,6 @@ fn taunt(
                             ..Default::default()
                         };
                         commands.entity(voice).insert(sound);
-                        println!("Taunt! Taunt!");
                         timer.reset();
                     }
                 }
@@ -1184,15 +1192,20 @@ fn robot_shoot(
         &Viewshed,
         &ShotRange,
         &ShotSpeed,
+        &ShotAccuracy,
     )>,
     player: Query<(&Player, &Coordinates)>,
     level: Query<(Entity, &Map)>,
     buffers: Res<Assets<Buffer>>,
     sfx: Res<Sfx>,
 ) {
-    for (_, robot_entity, robot_coords, mut timer, viewshed, range, speed) in robots.iter_mut() {
+    for (_, robot_entity, robot_coords, mut timer, viewshed, range, speed, accuracy) in
+        robots.iter_mut()
+    {
         if let Ok((_, player_coords)) = player.single() {
-            if viewshed.is_visible(player_coords) {
+            if player_coords.distance(robot_coords) <= viewshed.range as f32
+                && viewshed.is_visible(player_coords)
+            {
                 timer.tick(time.delta());
                 if timer.finished() {
                     if let Ok((level_entity, _)) = level.single() {
@@ -1212,6 +1225,8 @@ fn robot_shoot(
                             .insert(transform)
                             .id();
                         let bearing = robot_coords.bearing(player_coords);
+                        let bearing =
+                            thread_rng().gen_range(bearing - **accuracy..bearing + **accuracy);
                         let x = bearing.cos();
                         let y = bearing.sin();
                         let velocity = Vec2::new(x, y) * (**speed as f32);
