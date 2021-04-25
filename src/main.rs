@@ -99,7 +99,7 @@ fn main() {
         .add_system_set(
             SystemSet::on_enter(AppState::InGame)
                 .with_system(send_new_game_event.system())
-                .with_system(setup_level.system().chain(error_handler.system())),
+                .with_system(setup_level.system()),
         )
         .add_system(
             exit_post_processor
@@ -145,17 +145,13 @@ fn main() {
             ),
         )
         .add_system_to_stage(CoreStage::PostUpdate, collision.system())
-        .add_system_set(
-            SystemSet::on_enter(AppState::LevelUp)
-                .with_system(level_up_enter.system().chain(error_handler.system())),
-        )
+        .add_system_set(SystemSet::on_enter(AppState::LevelUp).with_system(level_up_enter.system()))
         .add_system_set(
             SystemSet::on_update(AppState::LevelUp)
                 .with_system(level_up_update.system().chain(error_handler.system())),
         )
         .add_system_set(
-            SystemSet::on_enter(AppState::GameOver)
-                .with_system(game_over_enter.system().chain(error_handler.system())),
+            SystemSet::on_enter(AppState::GameOver).with_system(game_over_enter.system()),
         )
         .add_system_set(
             SystemSet::on_update(AppState::GameOver)
@@ -456,10 +452,10 @@ struct Level(u32);
 fn setup_level(
     mut commands: Commands,
     mut level: Query<&mut Level>,
-    mut tts: ResMut<Tts>,
     buffers: Res<Assets<Buffer>>,
     sfx: Res<Sfx>,
-) -> Result<(), Box<dyn Error>> {
+    mut log: Query<&mut Log>,
+) {
     if let Ok(mut level) = level.single_mut() {
         **level += 1;
         let map_dimension = 5 + (**level / 2);
@@ -494,9 +490,10 @@ fn setup_level(
                     ..Default::default()
                 });
             });
-        tts.speak(format!("Level {}.", **level), false)?;
+        if let Ok(mut log) = log.single_mut() {
+            log.push(format!("Level {}.", **level));
+        }
     }
-    Ok(())
 }
 
 fn spawn_player(mut commands: Commands, sfx: Res<Sfx>) {
@@ -1380,7 +1377,6 @@ fn reset_between_lives_timer(mut timer: ResMut<BetweenLivesTimer>) {
 fn tick_between_lives_timer(
     time: Res<Time>,
     mut timer: ResMut<BetweenLivesTimer>,
-    mut tts: ResMut<Tts>,
     mut state: ResMut<State<AppState>>,
     mut player: Query<(
         &Player,
@@ -1389,6 +1385,7 @@ fn tick_between_lives_timer(
         &mut Coordinates,
         &mut Transform,
     )>,
+    mut log: Query<&mut Log>,
 ) -> Result<(), Box<dyn Error>> {
     timer.tick(time.delta());
     if timer.finished() {
@@ -1398,7 +1395,9 @@ fn tick_between_lives_timer(
                 state.overwrite_replace(AppState::GameOver)?;
             } else {
                 let life_or_lives = if **lives > 1 { "lives" } else { "life" };
-                tts.speak(format!("{} {} left.", **lives, life_or_lives), true)?;
+                if let Ok(mut log) = log.single_mut() {
+                    log.push(format!("{} {} left.", **lives, life_or_lives));
+                }
                 **coordinates = *checkpoint.0;
                 transform.rotation = checkpoint.1;
             }
@@ -1541,17 +1540,15 @@ fn level_up(
     Ok(())
 }
 
-fn level_up_enter(mut tts: ResMut<Tts>, level: Query<&Level>) -> Result<(), Box<dyn Error>> {
+fn level_up_enter(level: Query<&Level>, mut log: Query<&mut Log>) {
     for level in level.iter() {
-        tts.speak(
-            format!(
+        if let Ok(mut log) = log.single_mut() {
+            log.push(format!(
                 "Congratulations! Press Enter to continue to level {}.",
                 **level + 1
-            ),
-            true,
-        )?;
+            ));
+        }
     }
-    Ok(())
 }
 
 fn level_up_update(
@@ -1571,16 +1568,13 @@ fn level_up_update(
     Ok(())
 }
 
-fn game_over_enter(
-    mut commands: Commands,
-    mut tts: ResMut<Tts>,
-    map: Query<(Entity, &Map)>,
-) -> Result<(), Box<dyn Error>> {
+fn game_over_enter(mut commands: Commands, map: Query<(Entity, &Map)>, mut log: Query<&mut Log>) {
     for (entity, _) in map.iter() {
         commands.entity(entity).despawn_recursive();
     }
-    tts.speak("Game over. Press Enter to play again.", true)?;
-    Ok(())
+    if let Ok(mut log) = log.single_mut() {
+        log.push("Game over. Press Enter to play again.");
+    }
 }
 
 fn game_over_update(
