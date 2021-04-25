@@ -718,6 +718,8 @@ fn spawn_robots(
 fn robot_killed(
     mut commands: Commands,
     mut events: EventReader<RobotKilled>,
+    mut log: Query<&mut Log>,
+    names: Query<&Name>,
     level: Query<(Entity, &Map)>,
     transforms: Query<&Transform>,
     buffers: Res<Assets<Buffer>>,
@@ -728,6 +730,21 @@ fn robot_killed(
 ) {
     for RobotKilled(entity, index) in events.iter() {
         if !killed.contains(&entity) {
+            if let Ok(mut log) = log.single_mut() {
+                if let Ok(name) = names.get(*entity) {
+                    let mut messages = vec![
+                        "is toast!",
+                        "is defeated!",
+                        "is no more!",
+                        "is obliterated!",
+                        "exits stage left!",
+                        "just suffered a warrantee-voiding event!",
+                    ];
+                    messages.shuffle(&mut thread_rng());
+                    let message = format!("{} {}", **name, messages[0]);
+                    log.push(message);
+                }
+            }
             commands.entity(*entity).despawn_recursive();
             if let Ok((entity, _)) = level.single() {
                 if let Ok(transform) = transforms.get(entity) {
