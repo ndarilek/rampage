@@ -122,7 +122,8 @@ fn main() {
                 .with_system(bullet.system())
                 .with_system(wall_collide.system())
                 .with_system(wall_uncollide.system())
-                .with_system(level_up.system().chain(error_handler.system())),
+                .with_system(level_up.system().chain(error_handler.system()))
+                .with_system(shockwave.system()),
         )
         .add_system(
             highlight_next_exit
@@ -715,6 +716,9 @@ fn spawn_robots(
     }
 }
 
+#[derive(Clone, Debug, Deref, DerefMut)]
+struct DeathTimer(Timer);
+
 fn robot_killed(
     mut commands: Commands,
     mut events: EventReader<RobotKilled>,
@@ -726,6 +730,8 @@ fn robot_killed(
     sfx: Res<Sfx>,
     mut motion_blocked: Query<&mut MotionBlocked>,
     mut visibility_blocked: Query<&mut VisibilityBlocked>,
+    coordinates: Query<&Coordinates>,
+    non_exploding_robots: Query<(Entity, &Robot, &Coordinates), Without<DeathTimer>>,
     mut killed: Local<HashSet<Entity>>,
 ) {
     for RobotKilled(entity, index) in events.iter() {
@@ -767,7 +773,34 @@ fn robot_killed(
             if let Ok(mut visibility_blocked) = visibility_blocked.single_mut() {
                 visibility_blocked[*index] = false;
             }
+            if let Ok(robot_coordinates) = coordinates.get(*entity) {
+                for (entity, _, candidate_coordinates) in non_exploding_robots.iter() {
+                    let distance = robot_coordinates.distance(candidate_coordinates);
+                    if distance <= 5. {
+                        commands
+                            .entity(entity)
+                            .insert(DeathTimer(Timer::from_seconds(distance / 2., false)));
+                    }
+                }
+            }
             killed.insert(*entity);
+        }
+    }
+}
+
+fn shockwave(
+    time: Res<Time>,
+    mut exploding: Query<(Entity, &Coordinates, &mut DeathTimer)>,
+    level: Query<&Map>,
+    mut robot_killed: EventWriter<RobotKilled>,
+) {
+    for (entity, coordinates, mut timer) in exploding.iter_mut() {
+        timer.tick(time.delta());
+        if timer.finished() {
+            if let Ok(map) = level.single() {
+                let index = coordinates.to_index(map.width());
+                robot_killed.send(RobotKilled(entity, index));
+            }
         }
     }
 }
