@@ -262,7 +262,7 @@ fn log_visible(
     }
     let recently_lost_entities = seen.difference(&new_seen);
     for entity in recently_lost_entities {
-        recently_lost.insert(*entity, Timer::from_seconds(1., false));
+        recently_lost.insert(*entity, Timer::from_seconds(2., false));
     }
     *seen = new_seen;
 }
