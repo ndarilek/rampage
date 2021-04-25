@@ -10,11 +10,11 @@ A beacon is centered in each room exit. The correct beacon emits an alarm. Follo
 
 There are three robot types, from easiest to most difficult:
 
-* Dumbasses have minimal visibility range, and don't shoot far or accurately.
-* Jackasses have mid-level visibility and range, and shoot more accurately.
-* Badasses have as much visibility and shot range as you do, and are far more accurate.
+* Dumbasses have minimal visibility range, and don't shoot far or accurately. Level 1 is populated exclusively with dumbasses.
+* Jackasses have mid-level visibility and range, and shoot more accurately. The jackass is introduced on level 2.
+* Badasses have as much visibility and shot range as you do, and are far more accurate. Badasses begin to appear from level 3 onward.
 
-Robots can sometimes shoot or collide with each other. If a robot explodes, it takes out all nearby robots after a short delay.
+Robots can sometimes shoot or collide with each other. If a robot explodes, a shockwave takes out all nearby robots after a short delay.
 
 Killing multiple robots in a 10-second window was supposed to grant a score bonus, but I haven't implemented scoring yet. I did add the bonus system, though, so you'll receive a slightly higher tone for each robot destroyed, and a series of tones when the bonus window clears.
 
@@ -33,6 +33,7 @@ Killing multiple robots in a 10-second window was supposed to grant a score bonu
 | Speak coordinates | C | Left thumb |
 | Speak direction in degrees | D | Right thumb |
 | Speak lives remaining | H | |
+| Speak current level | L | |
 | Speak robots remaining | R | |
 | Restart or continue to next level when prompted | Enter | Xbox A, Playstation X |
 | Exit game | Escape | |
