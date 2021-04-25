@@ -739,13 +739,13 @@ fn spawn_robots(
 fn taunt(
     mut commands: Commands,
     time: Res<Time>,
-    robots: Query<(Entity, &Robot, &Coordinates, &Viewshed, &Children)>,
+    robots: Query<(&Robot, &Coordinates, &Viewshed, &Children)>,
     player: Query<(&Player, &Coordinates)>,
     mut timers: Query<&mut Timer>,
     buffers: Res<Assets<Buffer>>,
     sfx: Res<Sfx>,
 ) {
-    for (entity, robot, robot_coords, viewshed, children) in robots.iter() {
+    for (_, robot_coords, viewshed, children) in robots.iter() {
         if let Ok((_, player_coords)) = player.single() {
             if player_coords.distance(robot_coords) <= viewshed.range as f32
                 && viewshed.is_visible(player_coords)
@@ -757,7 +757,7 @@ fn taunt(
                         let mut taunts = sfx.taunts.clone();
                         taunts.shuffle(&mut thread_rng());
                         let buffer = buffers.get_handle(taunts[0]);
-                        let mut sound = Sound {
+                        let sound = Sound {
                             buffer,
                             state: SoundState::Playing,
                             gain: 1.5,
@@ -951,7 +951,7 @@ fn spawn_ambience(
                     buffer: buffers.get_handle(*handle),
                     state: SoundState::Playing,
                     looping: true,
-                    gain: 0.15,
+                    gain: 0.,
                     ..Default::default()
                 };
                 let x = (rng.gen_range(area.rect.x1..area.rect.x2)) as f32;
