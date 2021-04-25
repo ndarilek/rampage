@@ -18,6 +18,8 @@ Robots can sometimes shoot or collide with each other. If a robot explodes, a sh
 
 Killing multiple robots in a 10-second window was supposed to grant a score bonus, but I haven't implemented scoring yet. I did add the bonus system, though, so you'll receive a slightly higher tone for each robot destroyed, and a series of tones when the bonus window clears.
 
+The level exit plays a three-tone signal when it is visible. Move within range to activate it and advance. You cannot advance to the next level if any robots are visible.
+
 ## Controls
 
 | Command                                         |      Keyboard       |                      Controller |
