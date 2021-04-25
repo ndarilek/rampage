@@ -646,21 +646,21 @@ fn spawn_robots(
                         match robot_type {
                             RobotType::Dumbass => {
                                 dumbass_count += 1;
-                                name = Name::new(format!("Dumbass robot {}", dumbass_count));
+                                name = Name::new(format!("Dumbass {}", dumbass_count));
                                 max_speed = MaxSpeed(2.);
                                 visibility_range = 8;
                                 sound = sfx.robot_dumbass;
                             }
                             RobotType::Jackass => {
                                 jackass_count += 1;
-                                name = Name::new(format!("Jackass robot {}", jackass_count));
+                                name = Name::new(format!("Jackass {}", jackass_count));
                                 max_speed = MaxSpeed(4.);
                                 visibility_range = 16;
                                 sound = sfx.robot_jackass;
                             }
                             RobotType::Badass => {
                                 badass_count += 1;
-                                name = Name::new(format!("Badass robot {}", badass_count));
+                                name = Name::new(format!("Badass {}", badass_count));
                                 max_speed = MaxSpeed(4.);
                                 visibility_range = 24;
                                 sound = sfx.robot_badass;
