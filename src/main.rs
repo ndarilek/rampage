@@ -4,6 +4,7 @@ use std::{
     collections::{HashMap, HashSet},
     error::Error,
     f32::consts::PI,
+    time::Duration,
 };
 
 use bevy::{
@@ -107,6 +108,7 @@ fn main() {
                 .after(HIGHLIGHT_NEXT_EXIT_LABEL),
         )
         .add_system(spawn_robots.system())
+        .add_system(taunt.system())
         .add_system(robot_killed.system())
         .add_system(bonus.system())
         .add_system(bonus_clear.system())
@@ -186,6 +188,7 @@ struct Sfx {
     drone: HandleId,
     exit: HandleId,
     exit_correct: HandleId,
+    taunts: Vec<HandleId>,
     level_exit: HandleId,
     life_lost: HandleId,
     player_footstep: HandleId,
@@ -217,6 +220,16 @@ impl Default for Sfx {
             drone: "sfx/drone.flac".into(),
             exit: "sfx/exit.flac".into(),
             exit_correct: "sfx/exit_correct.flac".into(),
+            taunts: vec![
+                "sfx/taunt1.flac".into(),
+                "sfx/taunt2.flac".into(),
+                "sfx/taunt3.flac".into(),
+                "sfx/taunt4.flac".into(),
+                "sfx/taunt5.flac".into(),
+                "sfx/taunt6.flac".into(),
+                "sfx/taunt7.flac".into(),
+                "sfx/taunt8.flac".into(),
+            ],
             level_exit: "sfx/level_exit.flac".into(),
             life_lost: "sfx/life_lost.flac".into(),
             player_footstep: "sfx/player_footstep.flac".into(),
@@ -688,6 +701,13 @@ fn spawn_robots(
                                 })
                                 .insert(PursueWhenVisible(player_entity))
                                 .with_children(|parent| {
+                                    let mut timer = Timer::from_seconds(10., false);
+                                    timer.set_elapsed(Duration::from_secs(10));
+                                    parent
+                                        .spawn()
+                                        .insert(Transform::default())
+                                        .insert(GlobalTransform::default())
+                                        .insert(timer);
                                     parent.spawn().insert_bundle(FootstepBundle {
                                         footstep: Footstep {
                                             sound: sfx.robot_footstep,
@@ -710,6 +730,43 @@ fn spawn_robots(
                         }
                     }
                     spawned_robots += 1;
+                }
+            }
+        }
+    }
+}
+
+fn taunt(
+    mut commands: Commands,
+    time: Res<Time>,
+    robots: Query<(Entity, &Robot, &Coordinates, &Viewshed, &Children)>,
+    player: Query<(&Player, &Coordinates)>,
+    mut timers: Query<&mut Timer>,
+    buffers: Res<Assets<Buffer>>,
+    sfx: Res<Sfx>,
+) {
+    for (entity, robot, robot_coords, viewshed, children) in robots.iter() {
+        if let Ok((_, player_coords)) = player.single() {
+            if player_coords.distance(robot_coords) <= viewshed.range as f32
+                && viewshed.is_visible(player_coords)
+            {
+                let voice = children[0];
+                if let Ok(mut timer) = timers.get_mut(voice) {
+                    timer.tick(time.delta());
+                    if timer.finished() {
+                        let mut taunts = sfx.taunts.clone();
+                        taunts.shuffle(&mut thread_rng());
+                        let buffer = buffers.get_handle(taunts[0]);
+                        let mut sound = Sound {
+                            buffer,
+                            state: SoundState::Playing,
+                            gain: 1.5,
+                            ..Default::default()
+                        };
+                        commands.entity(voice).insert(sound);
+                        println!("Taunt! Taunt!");
+                        timer.reset();
+                    }
                 }
             }
         }
@@ -774,11 +831,14 @@ fn robot_killed(
                 visibility_blocked[*index] = false;
             }
             if let Ok(robot_coordinates) = coordinates.get(*entity) {
-                for (entity, _, candidate_coordinates) in non_exploding_robots.iter() {
+                for (candidate_entity, _, candidate_coordinates) in non_exploding_robots.iter() {
+                    if *entity == candidate_entity {
+                        continue;
+                    }
                     let distance = robot_coordinates.distance(candidate_coordinates);
                     if distance <= 5. {
                         commands
-                            .entity(entity)
+                            .entity(candidate_entity)
                             .insert(DeathTimer(Timer::from_seconds(distance / 2., false)));
                     }
                 }
