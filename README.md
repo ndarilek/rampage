@@ -2,6 +2,41 @@
 
 An audio-only, _Berzerk_-like shooter for the second [No Video Jam](https://itch.io/jam/no-video-jam-2).
 
+## Gameplay
+
+The arena consists of a grid-like maze of rooms populated by angry robots. Collisions with walls and robots are deadly, though touching a wall will make a power-up sound and give you a second to move away.
+
+A beacon is centered in each room exit. The correct beacon emits an alarm. Follow the alarms to successfully traverse each level.
+
+There are three robot types, from easiest to most difficult:
+
+* Dumbasses have minimal visibility range, and don't shoot far or accurately.
+* Jackasses have mid-level visibility and range, and shoot more accurately.
+* Badasses have as much visibility and shot range as you do, and are far more accurate.
+
+Robots can sometimes shoot or collide with each other. If a robot explodes, it takes out all nearby robots after a short delay.
+
+Killing multiple robots in a 10-second window was supposed to grant a score bonus, but I haven't implemented scoring yet. I did add the bonus system, though, so you'll receive a slightly higher tone for each robot destroyed, and a series of tones when the bonus window clears.
+
+## Controls
+
+| Command | Keyboard | Controller |
+| Move forward | Up arrow | Left stick forward, D-pad Up |
+| Move backward | Down arrow | Left stick backward, D-pad down |
+| Turn left | Left arrow | Right stick left, D-pad left |
+| Turn right | Right arrow | Right stick right, D-pad right |
+| Strafe left | Shift left arrow | Left stick left |
+| Strafe right | Shift right arrow | Left stick right |
+| Snap to nearest cardinal direction left | Control left arrow | Left shoulder |
+| Snap to nearest cardinal direction right | Control right arrow | Right shoulder |
+| Shoot | Space | Either trigger |
+| Speak coordinates | C | Left thumb |
+| Speak direction in degrees | D | Right thumb |
+| Speak lives remaining | H | |
+| Speak robots remaining | R | |
+| Restart or continue to next level when prompted | Enter | Xbox A, Playstation X |
+| Exit game | Escape | |
+
 ## Development Setup
 
 1. [Install Rust](https://rustup.rs). If you've got Rust installed already, be sure that it is up-to-date. This project requires _at least v1.0.51_.

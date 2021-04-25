@@ -305,7 +305,7 @@ impl Default for PlayerBundle {
             player: Default::default(),
             listener: Default::default(),
             coordinates: Default::default(),
-            rotation_speed: RotationSpeed(Angle::Degrees(60.)),
+            rotation_speed: RotationSpeed(Angle::Degrees(90.)),
             transform: Default::default(),
             global_transform: Default::default(),
             speed: Default::default(),
@@ -499,7 +499,7 @@ fn setup_level(
                 parent.spawn().insert(Sound {
                     buffer: buffers.get_handle(sfx.drone),
                     state: SoundState::Playing,
-                    gain: 0.1,
+                    gain: 0.2,
                     looping: true,
                     ..Default::default()
                 });
@@ -597,7 +597,7 @@ fn spawn_robots(
 ) {
     if let Ok(level) = level.single() {
         if let Ok((entity, map, areas)) = map.single() {
-            let base_robots = 15;
+            let base_robots = 20;
             let extra_robots = (**level - 1) * 10;
             let total_robots = base_robots + extra_robots;
             let mut robot_types = vec![RobotType::Dumbass; base_robots as usize];
@@ -959,7 +959,7 @@ fn spawn_ambience(
                     buffer: buffers.get_handle(*handle),
                     state: SoundState::Playing,
                     looping: true,
-                    gain: 0.,
+                    gain: 0.3,
                     ..Default::default()
                 };
                 let x = (rng.gen_range(area.rect.x1..area.rect.x2)) as f32;
