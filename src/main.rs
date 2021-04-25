@@ -809,7 +809,7 @@ fn robot_killed(
                         "is no more!",
                         "is obliterated!",
                         "exits stage left!",
-                        "just suffered a warrantee-voiding event!",
+                        "just suffered a warranty-voiding event!",
                     ];
                     messages.shuffle(&mut thread_rng());
                     let message = format!("{} {}", **name, messages[0]);
