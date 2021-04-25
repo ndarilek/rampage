@@ -1266,7 +1266,7 @@ fn bullet(
     robots: Query<(&Robot, Entity, &Coordinates)>,
     level: Query<&Map>,
     mut robot_killed: EventWriter<RobotKilled>,
-    player: Query<(&Player, Entity, &Coordinates)>,
+    mut player: Query<(&Player, Entity, &Coordinates, &mut Lives)>,
     mut log: Query<&mut Log>,
 ) {
     for (bullet, entity, coordinates, range, mut sound) in bullets.iter_mut() {
@@ -1298,10 +1298,11 @@ fn bullet(
                 break;
             }
         }
-        if let Ok((_, entity, player_coordinates)) = player.single() {
+        if let Ok((_, entity, player_coordinates, mut lives)) = player.single_mut() {
             if *owner != entity && coordinates.distance(player_coordinates) <= 1. {
                 if let Ok(mut log) = log.single_mut() {
                     log.push("Ouch!");
+                    **lives -= 1;
                 }
                 remove = true;
             }
