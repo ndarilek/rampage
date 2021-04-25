@@ -602,17 +602,17 @@ fn spawn_robots(
             let total_robots = base_robots + extra_robots;
             let mut robot_types = vec![RobotType::Dumbass; base_robots as usize];
             if **level == 2 {
-                for _ in 0..6 {
+                for _ in 0..5 {
                     robot_types.push(RobotType::Dumbass);
                 }
-                for _ in 6..10 {
+                for _ in 5..10 {
                     robot_types.push(RobotType::Jackass);
                 }
             } else if **level > 2 {
-                for _ in 0..(extra_robots as f32 * 0.4) as u32 {
+                for _ in 0..(extra_robots as f32 * 0.3) as u32 {
                     robot_types.push(RobotType::Dumbass);
                 }
-                for _ in 0..(extra_robots as f32 * 0.4) as u32 {
+                for _ in 0..(extra_robots as f32 * 0.5) as u32 {
                     robot_types.push(RobotType::Jackass);
                 }
                 for _ in 0..(extra_robots as f32 * 0.2) as u32 {
@@ -664,7 +664,7 @@ fn spawn_robots(
                                 dumbass_count += 1;
                                 name = Name::new(format!("Dumbass {}", dumbass_count));
                                 max_speed = MaxSpeed(2.);
-                                visibility_range = 8;
+                                visibility_range = 12;
                                 shot_accuracy = ShotAccuracy(PI / 10.);
                                 sound = sfx.robot_dumbass;
                             }
@@ -703,7 +703,7 @@ fn spawn_robots(
                                     },
                                     blocks_visibility: Default::default(),
                                     blocks_motion: Default::default(),
-                                    shot_timer: ShotTimer(Timer::from_seconds(5., false)),
+                                    shot_timer: ShotTimer(Timer::from_seconds(3., false)),
                                     shot_range: ShotRange(16),
                                     shot_speed: ShotSpeed(8),
                                     shot_accuracy,
