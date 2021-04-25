@@ -10,6 +10,7 @@ use bevy::{
     asset::{HandleId, LoadState},
     prelude::*,
     tasks::AsyncComputeTaskPool,
+    utils::Instant,
 };
 use bevy_input_actionmap::{GamepadAxisDirection, InputMap};
 use bevy_openal::{efx, Buffer, Context, GlobalEffects, Listener, Sound, SoundState};
@@ -107,6 +108,8 @@ fn main() {
         )
         .add_system(spawn_robots.system())
         .add_system(robot_killed.system())
+        .add_system(bonus.system())
+        .add_system(bonus_clear.system())
         .add_system(spawn_ambience.system())
         .add_system(spawn_level_exit.system())
         .add_system(position_player_at_start.system())
@@ -179,6 +182,8 @@ struct AssetHandles {
 #[derive(Clone, Debug)]
 struct Sfx {
     ambiences: Vec<HandleId>,
+    bonus_clear: HandleId,
+    bonus: HandleId,
     bullet: HandleId,
     bullet_wall: HandleId,
     drone: HandleId,
@@ -208,6 +213,8 @@ impl Default for Sfx {
                 "sfx/ambience5.flac".into(),
                 "sfx/ambience6.flac".into(),
             ],
+            bonus_clear: "sfx/bonus_clear.flac".into(),
+            bonus: "sfx/bonus.flac".into(),
             bullet: "sfx/bullet.flac".into(),
             bullet_wall: "sfx/bullet_wall.flac".into(),
             drone: "sfx/drone.flac".into(),
@@ -323,12 +330,14 @@ const SHOOT: &str = "SHOOT";
 const CONTINUE: &str = "CONTINUE";
 
 fn setup(
+    mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut handles: ResMut<AssetHandles>,
     mut input: ResMut<InputMap<String>>,
     context: ResMut<Context>,
     mut global_effects: ResMut<GlobalEffects>,
 ) -> Result<(), Box<dyn Error>> {
+    commands.spawn().insert(RobotKillTimes::default());
     handles.sfx = asset_server.load_folder("sfx")?;
     let mut slot = context.new_aux_effect_slot()?;
     let mut reverb = context.new_effect::<efx::EaxReverbEffect>()?;
@@ -730,7 +739,7 @@ fn robot_killed(
                         .insert(Sound {
                             buffer: buffers.get_handle(sfx.robot_explode),
                             state: SoundState::Playing,
-                            gain: 3.,
+                            rolloff_factor: 0.1,
                             ..Default::default()
                         })
                         .insert(*transform)
@@ -745,6 +754,71 @@ fn robot_killed(
                 visibility_blocked[*index] = false;
             }
             killed.insert(*entity);
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Deref, DerefMut)]
+struct RobotKillTimes(Vec<Instant>);
+
+fn bonus(
+    mut commands: Commands,
+    mut events: EventReader<RobotKilled>,
+    mut robot_kill_times: Query<&mut RobotKillTimes>,
+    buffers: Res<Assets<Buffer>>,
+    sfx: Res<Sfx>,
+    level: Query<(&Map, Entity)>,
+) {
+    for _ in events.iter() {
+        for (_, map_entity) in level.single() {
+            if let Ok(mut robot_kill_times) = robot_kill_times.single_mut() {
+                robot_kill_times.push(Instant::now());
+                let buffer = buffers.get_handle(sfx.bonus);
+                let recent_kills = (robot_kill_times.len() % 7) - 1;
+                let notes = vec![0., 2., 4., 5., 7., 9., 11.];
+                let pitch = 1. + notes[recent_kills] / 12.;
+                let sound_id = commands
+                    .spawn()
+                    .insert(Sound {
+                        buffer,
+                        state: SoundState::Playing,
+                        gain: 1.5,
+                        pitch,
+                        ..Default::default()
+                    })
+                    .id();
+                commands.entity(map_entity).push_children(&[sound_id]);
+            }
+        }
+    }
+}
+
+fn bonus_clear(
+    mut commands: Commands,
+    mut robot_kill_times: Query<&mut RobotKillTimes>,
+    buffers: Res<Assets<Buffer>>,
+    sfx: Res<Sfx>,
+    level: Query<(&Map, Entity)>,
+) {
+    if let Ok(mut robot_kill_times) = robot_kill_times.single_mut() {
+        if robot_kill_times.is_empty() {
+            return;
+        }
+        robot_kill_times.retain(|v| v.elapsed().as_secs() <= 10);
+        if robot_kill_times.is_empty() {
+            for (_, map_entity) in level.single() {
+                let buffer = buffers.get_handle(sfx.bonus_clear);
+                let sound_id = commands
+                    .spawn()
+                    .insert(Sound {
+                        buffer,
+                        state: SoundState::Playing,
+                        gain: 1.5,
+                        ..Default::default()
+                    })
+                    .id();
+                commands.entity(map_entity).push_children(&[sound_id]);
+            }
         }
     }
 }
