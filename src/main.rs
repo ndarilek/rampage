@@ -817,8 +817,8 @@ fn robot_killed(
                 }
             }
             commands.entity(*entity).despawn_recursive();
-            if let Ok((entity, _)) = level.single() {
-                if let Ok(transform) = transforms.get(entity) {
+            if let Ok((level_entity, _)) = level.single() {
+                if let Ok(transform) = transforms.get(*entity) {
                     let id = commands
                         .spawn()
                         .insert(Sound {
@@ -829,7 +829,7 @@ fn robot_killed(
                         })
                         .insert(*transform)
                         .id();
-                    commands.entity(entity).push_children(&[id]);
+                    commands.entity(level_entity).push_children(&[id]);
                 }
             }
             if let Ok(mut motion_blocked) = motion_blocked.single_mut() {
