@@ -108,8 +108,8 @@ fn main() {
         )
         .add_system(spawn_robots.system())
         .add_system(sees_player_scorer.system())
-        .add_system(pursue_player.system())
-        .add_system(taunt.system())
+        .add_system_to_stage(CoreStage::PreUpdate, pursue_player.system())
+        .add_system(taunt_player.system())
         .add_system(robot_killed.system())
         .add_system(bonus.system())
         .add_system(bonus_clear.system())
@@ -121,7 +121,7 @@ fn main() {
                 .with_system(speak_info.system().chain(error_handler.system()))
                 .with_system(snap.system())
                 .with_system(shoot.system())
-                .with_system(robot_shoot.system())
+                .with_system(shoot_player.system())
                 .with_system(wall_collide.system())
                 .with_system(wall_uncollide.system())
                 .with_system(level_up.system().chain(error_handler.system()))
@@ -711,7 +711,7 @@ fn spawn_robots(
                             })
                             .insert(
                                 Thinker::build()
-                                    .picker(FirstToScore { threshold: 1. })
+                                    .picker(FirstToScore { threshold: 0.8 })
                                     .when(SeesPlayer::build(), PursuePlayer::build()),
                             )
                             .with_children(|parent| {
@@ -743,42 +743,6 @@ fn spawn_robots(
                         commands.entity(entity).push_children(&[entity_id]);
                     }
                     spawned_robots += 1;
-                }
-            }
-        }
-    }
-}
-
-fn taunt(
-    mut commands: Commands,
-    time: Res<Time>,
-    robots: Query<(&Robot, &Coordinates, &Viewshed, &Children)>,
-    player: Query<(&Player, &Coordinates)>,
-    mut timers: Query<&mut Timer>,
-    buffers: Res<Assets<Buffer>>,
-    sfx: Res<Sfx>,
-) {
-    for (_, robot_coords, viewshed, children) in robots.iter() {
-        if let Ok((_, player_coords)) = player.single() {
-            if player_coords.distance(robot_coords) <= viewshed.range as f32
-                && viewshed.is_visible(player_coords)
-            {
-                let voice = children[0];
-                if let Ok(mut timer) = timers.get_mut(voice) {
-                    timer.tick(time.delta());
-                    if timer.finished() {
-                        let mut taunts = sfx.taunts.clone();
-                        taunts.shuffle(&mut thread_rng());
-                        let buffer = buffers.get_handle(taunts[0]);
-                        let sound = Sound {
-                            buffer,
-                            state: SoundState::Playing,
-                            gain: 1.5,
-                            ..Default::default()
-                        };
-                        commands.entity(voice).insert(sound);
-                        timer.reset();
-                    }
                 }
             }
         }
@@ -1209,12 +1173,13 @@ impl ScorerBuilder for SeesPlayerBuilder {
 
 fn sees_player_scorer(
     mut query: Query<(&Actor, &mut Score), With<SeesPlayer>>,
+    coordinates: Query<&Coordinates>,
     viewsheds: Query<&Viewshed>,
     player: Query<(&Player, &Coordinates)>,
     mut last_player_coords: Local<Option<(i32, i32)>>,
 ) {
-    if let Ok((_, player_coordinates)) = player.single() {
-        let coords = player_coordinates.i32();
+    if let Ok((_, player_coords)) = player.single() {
+        let coords = player_coords.i32();
         if last_player_coords.is_none() {
             *last_player_coords = Some(coords);
         }
@@ -1223,10 +1188,14 @@ fn sees_player_scorer(
         }
         for (Actor(actor), mut score) in query.iter_mut() {
             if let Ok(viewshed) = viewsheds.get(*actor) {
-                if viewshed.is_visible(player_coordinates) {
-                    score.set(1.);
-                } else {
-                    score.set(0.);
+                if let Ok(actor_coords) = coordinates.get(*actor) {
+                    if actor_coords.distance(player_coords) <= viewshed.range as f32
+                        && viewshed.is_visible(player_coords)
+                    {
+                        score.set(1.);
+                    } else {
+                        score.set(0.);
+                    }
                 }
             }
         }
@@ -1293,15 +1262,47 @@ fn pursue_player(
     }
 }
 
-fn robot_shoot(
+fn taunt_player(
+    mut commands: Commands,
+    query: Query<&Actor, With<PursuePlayer>>,
+    time: Res<Time>,
+    robots: Query<(&Robot, &Children)>,
+    mut timers: Query<&mut Timer>,
+    buffers: Res<Assets<Buffer>>,
+    sfx: Res<Sfx>,
+) {
+    for Actor(actor) in query.iter() {
+        if let Ok((_, children)) = robots.get(*actor) {
+            let voice = children[0];
+            if let Ok(mut timer) = timers.get_mut(voice) {
+                timer.tick(time.delta());
+                if timer.finished() {
+                    let mut taunts = sfx.taunts.clone();
+                    taunts.shuffle(&mut thread_rng());
+                    let buffer = buffers.get_handle(taunts[0]);
+                    let sound = Sound {
+                        buffer,
+                        state: SoundState::Playing,
+                        gain: 1.5,
+                        ..Default::default()
+                    };
+                    commands.entity(voice).insert(sound);
+                    timer.reset();
+                }
+            }
+        }
+    }
+}
+
+fn shoot_player(
     mut commands: Commands,
     time: Res<Time>,
+    query: Query<&Actor, With<PursuePlayer>>,
     mut robots: Query<(
         &Robot,
         Entity,
         &Coordinates,
         &mut ShotTimer,
-        &Viewshed,
         &ShotRange,
         &ShotSpeed,
         &ShotAccuracy,
@@ -1311,13 +1312,11 @@ fn robot_shoot(
     buffers: Res<Assets<Buffer>>,
     sfx: Res<Sfx>,
 ) {
-    for (_, robot_entity, robot_coords, mut timer, viewshed, range, speed, accuracy) in
-        robots.iter_mut()
-    {
-        if let Ok((_, player_coords)) = player.single() {
-            if player_coords.distance(robot_coords) <= viewshed.range as f32
-                && viewshed.is_visible(player_coords)
-            {
+    for Actor(actor) in query.iter() {
+        if let Ok((_, robot_entity, robot_coords, mut timer, range, speed, accuracy)) =
+            robots.get_mut(*actor)
+        {
+            if let Ok((_, player_coords)) = player.single() {
                 timer.tick(time.delta());
                 if timer.finished() {
                     if let Ok((level_entity, _)) = level.single() {
