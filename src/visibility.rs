@@ -19,10 +19,9 @@ pub struct BlocksVisibility;
 #[reflect(Component)]
 pub struct RevealedTiles(pub Vec<bool>);
 
-#[derive(Clone, Debug, Reflect)]
-#[reflect(Component)]
+#[derive(Clone, Debug)]
 pub struct Viewshed {
-    pub visible: Vec<(i32, i32)>,
+    pub visible: HashSet<(i32, i32)>,
     pub range: u32,
 }
 
@@ -30,7 +29,7 @@ impl Default for Viewshed {
     fn default() -> Self {
         Self {
             range: 15,
-            visible: vec![],
+            visible: HashSet::new(),
         }
     }
 }
@@ -182,7 +181,7 @@ fn update_viewshed(
                 vision_distance,
                 255,
                 |coord, _directions, _visibility| {
-                    viewshed.visible.push((coord.x, coord.y));
+                    viewshed.visible.insert((coord.x, coord.y));
                 },
             );
         }

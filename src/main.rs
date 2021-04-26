@@ -1147,7 +1147,7 @@ fn shoot(
         player.single_mut()
     {
         timer.tick(time.delta());
-        if input.just_active(SHOOT) && timer.finished() {
+        if input.active(SHOOT) && timer.finished() {
             if let Ok((level_entity, _)) = level.single() {
                 let shot_sound = commands
                     .spawn()
