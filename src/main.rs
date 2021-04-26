@@ -121,11 +121,13 @@ fn main() {
                 .with_system(snap.system())
                 .with_system(shoot.system())
                 .with_system(robot_shoot.system())
-                .with_system(bullet.system())
                 .with_system(wall_collide.system())
                 .with_system(wall_uncollide.system())
                 .with_system(level_up.system().chain(error_handler.system()))
                 .with_system(shockwave.system()),
+        )
+        .add_system_set(
+            SystemSet::on_in_stack_update(AppState::InGame).with_system(bullet.system()),
         )
         .add_system(
             highlight_next_exit
