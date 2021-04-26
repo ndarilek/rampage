@@ -16,12 +16,12 @@ use bevy::{
 use bevy_input_actionmap::{GamepadAxisDirection, InputMap};
 use bevy_openal::{efx, Buffer, Context, GlobalEffects, Listener, Sound, SoundState};
 use bevy_tts::Tts;
+use big_brain::prelude::*;
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use derive_more::{Deref, DerefMut};
 use mapgen::{MapBuilder, TileType};
 use rand::prelude::*;
 
-mod behavior;
 #[macro_use]
 mod core;
 mod error;
@@ -34,7 +34,6 @@ mod sound;
 mod visibility;
 
 use crate::{
-    behavior::PursueWhenVisible,
     core::{Angle, Area, Coordinates, Player, PointLike},
     error::error_handler,
     exploration::Mappable,
@@ -44,7 +43,7 @@ use crate::{
         BlocksMotion, Collision, MaxSpeed, MonitorsCollisions, MotionBlocked, NavigationConfig,
         RotationSpeed, Speed, Velocity,
     },
-    pathfinding::find_path,
+    pathfinding::{find_path, Destination},
     sound::{Footstep, FootstepBundle, SoundIcon, SoundIconBundle},
     visibility::{BlocksVisibility, Viewshed, VisibilityBlocked},
 };
@@ -67,11 +66,11 @@ fn main() {
             movement_control_states: vec![AppState::InGame],
         })
         .add_plugins(DefaultPlugins)
+        .add_plugin(BigBrainPlugin)
         .add_plugin(bevy_input_actionmap::ActionPlugin::<String>::default())
         .add_plugin(bevy_openal::OpenAlPlugin)
         .add_plugin(bevy_tts::TtsPlugin)
         .add_plugin(core::CorePlugin)
-        .add_plugin(behavior::BehaviorPlugin)
         .add_plugin(exploration::ExplorationPlugin)
         .add_plugin(log::LogPlugin)
         .insert_resource(MapConfig {
@@ -108,6 +107,8 @@ fn main() {
                 .after(HIGHLIGHT_NEXT_EXIT_LABEL),
         )
         .add_system(spawn_robots.system())
+        .add_system(sees_player_scorer.system())
+        .add_system(pursue_player.system())
         .add_system(taunt.system())
         .add_system(robot_killed.system())
         .add_system(bonus.system())
@@ -595,7 +596,6 @@ fn spawn_robots(
     sfx: Res<Sfx>,
     level: Query<&Level>,
     map: Query<(Entity, &Map, &Areas), Added<Areas>>,
-    player: Query<(&Player, Entity)>,
 ) {
     if let Ok(level) = level.single() {
         if let Ok((entity, map, areas)) = map.single() {
@@ -687,58 +687,60 @@ fn spawn_robots(
                                 sound = sfx.robot_badass;
                             }
                         };
-                        if let Ok((_, player_entity)) = player.single() {
-                            let entity_id = commands
-                                .spawn()
-                                .insert_bundle(RobotBundle {
-                                    robot: Robot(RobotType::Jackass),
-                                    coordinates: robot_coords.into(),
-                                    transform: Default::default(),
-                                    global_transform: Default::default(),
-                                    speed: Default::default(),
-                                    max_speed,
-                                    velocity: Default::default(),
-                                    name,
-                                    viewshed: Viewshed {
-                                        range: visibility_range,
+                        let entity_id = commands
+                            .spawn()
+                            .insert_bundle(RobotBundle {
+                                robot: Robot(RobotType::Jackass),
+                                coordinates: robot_coords.into(),
+                                transform: Default::default(),
+                                global_transform: Default::default(),
+                                speed: Default::default(),
+                                max_speed,
+                                velocity: Default::default(),
+                                name,
+                                viewshed: Viewshed {
+                                    range: visibility_range,
+                                    ..Default::default()
+                                },
+                                blocks_visibility: Default::default(),
+                                blocks_motion: Default::default(),
+                                shot_timer: ShotTimer(Timer::from_seconds(3., false)),
+                                shot_range: ShotRange(16),
+                                shot_speed: ShotSpeed(8),
+                                shot_accuracy,
+                            })
+                            .insert(
+                                Thinker::build()
+                                    .picker(FirstToScore { threshold: 1. })
+                                    .when(SeesPlayer::build(), PursuePlayer::build()),
+                            )
+                            .with_children(|parent| {
+                                let mut timer = Timer::from_seconds(10., false);
+                                timer.set_elapsed(Duration::from_secs(10));
+                                parent
+                                    .spawn()
+                                    .insert(Transform::default())
+                                    .insert(GlobalTransform::default())
+                                    .insert(timer);
+                                parent.spawn().insert_bundle(FootstepBundle {
+                                    footstep: Footstep {
+                                        sound: sfx.robot_footstep,
+                                        step_length: 2.,
+                                        gain: 0.7,
+                                        pitch_variation: None,
+                                    },
+                                    ..Default::default()
+                                });
+                                parent.spawn().insert_bundle(SoundIconBundle {
+                                    sound_icon: SoundIcon {
+                                        sound,
                                         ..Default::default()
                                     },
-                                    blocks_visibility: Default::default(),
-                                    blocks_motion: Default::default(),
-                                    shot_timer: ShotTimer(Timer::from_seconds(3., false)),
-                                    shot_range: ShotRange(16),
-                                    shot_speed: ShotSpeed(8),
-                                    shot_accuracy,
-                                })
-                                .insert(PursueWhenVisible(player_entity))
-                                .with_children(|parent| {
-                                    let mut timer = Timer::from_seconds(10., false);
-                                    timer.set_elapsed(Duration::from_secs(10));
-                                    parent
-                                        .spawn()
-                                        .insert(Transform::default())
-                                        .insert(GlobalTransform::default())
-                                        .insert(timer);
-                                    parent.spawn().insert_bundle(FootstepBundle {
-                                        footstep: Footstep {
-                                            sound: sfx.robot_footstep,
-                                            step_length: 2.,
-                                            gain: 0.7,
-                                            pitch_variation: None,
-                                        },
-                                        ..Default::default()
-                                    });
-                                    parent.spawn().insert_bundle(SoundIconBundle {
-                                        sound_icon: SoundIcon {
-                                            sound,
-                                            ..Default::default()
-                                        },
-                                        ..Default::default()
-                                    });
-                                })
-                                .id();
-                            commands.entity(entity).push_children(&[entity_id]);
-                        }
+                                    ..Default::default()
+                                });
+                            })
+                            .id();
+                        commands.entity(entity).push_children(&[entity_id]);
                     }
                     spawned_robots += 1;
                 }
@@ -1183,6 +1185,110 @@ fn shoot(
                     .push_children(&[shot_sound, bullet]);
             }
             timer.reset();
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct SeesPlayer;
+
+impl SeesPlayer {
+    fn build() -> SeesPlayerBuilder {
+        SeesPlayerBuilder
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct SeesPlayerBuilder;
+
+impl ScorerBuilder for SeesPlayerBuilder {
+    fn build(&self, cmd: &mut Commands, scorer: Entity, _actor: Entity) {
+        cmd.entity(scorer).insert(SeesPlayer);
+    }
+}
+
+fn sees_player_scorer(
+    mut query: Query<(&Actor, &mut Score), With<SeesPlayer>>,
+    viewsheds: Query<&Viewshed>,
+    player: Query<(&Player, &Coordinates)>,
+    mut last_player_coords: Local<Option<(i32, i32)>>,
+) {
+    if let Ok((_, player_coordinates)) = player.single() {
+        let coords = player_coordinates.i32();
+        if last_player_coords.is_none() {
+            *last_player_coords = Some(coords);
+        }
+        if *last_player_coords == Some(coords) {
+            return;
+        }
+        for (Actor(actor), mut score) in query.iter_mut() {
+            if let Ok(viewshed) = viewsheds.get(*actor) {
+                if viewshed.is_visible(player_coordinates) {
+                    score.set(1.);
+                } else {
+                    score.set(0.);
+                }
+            }
+        }
+        *last_player_coords = Some(coords);
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct PursuePlayer;
+
+impl PursuePlayer {
+    fn build() -> PursuePlayerBuilder {
+        PursuePlayerBuilder
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct PursuePlayerBuilder;
+
+impl ActionBuilder for PursuePlayerBuilder {
+    fn build(&self, cmd: &mut Commands, action: Entity, _actor: Entity) {
+        cmd.entity(action).insert(PursuePlayer);
+    }
+}
+
+fn pursue_player(
+    mut commands: Commands,
+    mut query: Query<(&Actor, &mut ActionState), With<PursuePlayer>>,
+    player: Query<(&Player, &Coordinates)>,
+    mut log: Query<&mut Log>,
+    names: Query<&Name>,
+    robot: Query<&MaxSpeed>,
+) {
+    for (Actor(actor), mut state) in query.iter_mut() {
+        match *state {
+            ActionState::Requested => {
+                if let Ok(mut log) = log.single_mut() {
+                    if let Ok(name) = names.get(*actor) {
+                        log.push(format!("{} is chasing you!", **name));
+                    }
+                }
+                *state = ActionState::Executing;
+            }
+            ActionState::Executing => {
+                if let Ok((_, coordinates)) = player.single() {
+                    if let Ok(max_speed) = robot.get(*actor) {
+                        commands
+                            .entity(*actor)
+                            .insert(Destination(coordinates.i32()))
+                            .insert(Speed(**max_speed));
+                    }
+                }
+            }
+            ActionState::Cancelled => {
+                if let Ok(mut log) = log.single_mut() {
+                    if let Ok(name) = names.get(*actor) {
+                        log.push(format!("{} evaded!", **name));
+                    }
+                }
+                *state = ActionState::Success;
+            }
+            _ => {}
         }
     }
 }
