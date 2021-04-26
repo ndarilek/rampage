@@ -885,7 +885,7 @@ fn bonus(
     level: Query<(&Map, Entity)>,
 ) {
     for _ in events.iter() {
-        for (_, map_entity) in level.single() {
+        if let Ok((_, map_entity)) = level.single() {
             if let Ok(mut robot_kill_times) = robot_kill_times.single_mut() {
                 robot_kill_times.push(Instant::now());
                 let buffer = buffers.get_handle(sfx.bonus);
@@ -919,14 +919,13 @@ fn bonus_clear(
     if let Ok(mut robot_kill_times) = robot_kill_times.single_mut() {
         for _ in events.iter() {
             robot_kill_times.clear();
-            return;
         }
         if robot_kill_times.is_empty() {
             return;
         }
         robot_kill_times.retain(|v| v.elapsed().as_secs() <= 10);
         if robot_kill_times.is_empty() {
-            for (_, map_entity) in level.single() {
+            if let Ok((_, map_entity)) = level.single() {
                 let buffer = buffers.get_handle(sfx.bonus_clear);
                 let sound_id = commands
                     .spawn()
@@ -1082,7 +1081,7 @@ fn snap(input: Res<InputMap<String>>, mut transform: Query<(&Player, &mut Transf
             let yaw = forward.y.atan2(forward.x);
             if (0. ..PI / 2.).contains(&yaw) {
                 transform.rotation = Quat::from_rotation_z(PI / 2.);
-            } else if yaw >= PI / 2. && yaw < PI {
+            } else if (PI / 2.0..PI).contains(&yaw) {
                 transform.rotation = Quat::from_rotation_z(PI);
             } else if yaw < -PI / 2. {
                 transform.rotation = Quat::from_rotation_z(-PI / 2.);
