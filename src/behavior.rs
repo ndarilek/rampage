@@ -83,11 +83,9 @@ fn pursue_when_visible(
             if !cache.contains_key(&**pursuing) {
                 cache.insert(**pursuing, pursued_coordinates.i32());
                 update_destination = true;
-            } else {
-                if let Some(prev_coordinates) = cache.get(&**pursuing) {
-                    if prev_coordinates.i32() != pursued_coordinates.i32() {
-                        update_destination = true;
-                    }
+            } else if let Some(prev_coordinates) = cache.get(&**pursuing) {
+                if prev_coordinates.i32() != pursued_coordinates.i32() {
+                    update_destination = true;
                 }
             }
             if pursuer_coordinates.distance_squared(pursued_coordinates)
