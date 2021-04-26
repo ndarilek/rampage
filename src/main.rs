@@ -914,8 +914,13 @@ fn bonus_clear(
     buffers: Res<Assets<Buffer>>,
     sfx: Res<Sfx>,
     level: Query<(&Map, Entity)>,
+    mut events: EventReader<Reset>,
 ) {
     if let Ok(mut robot_kill_times) = robot_kill_times.single_mut() {
+        for _ in events.iter() {
+            robot_kill_times.clear();
+            return;
+        }
         if robot_kill_times.is_empty() {
             return;
         }
