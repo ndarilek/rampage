@@ -1172,6 +1172,7 @@ impl ScorerBuilder for SeesPlayerBuilder {
 }
 
 fn sees_player_scorer(
+    pool: Res<AsyncComputeTaskPool>,
     mut query: Query<(&Actor, &mut Score), With<SeesPlayer>>,
     coordinates: Query<&Coordinates>,
     viewsheds: Query<&Viewshed>,
@@ -1186,7 +1187,7 @@ fn sees_player_scorer(
         if *last_player_coords == Some(coords) {
             return;
         }
-        for (Actor(actor), mut score) in query.iter_mut() {
+        query.par_for_each_mut(&pool, 20, |(Actor(actor), mut score)| {
             if let Ok(viewshed) = viewsheds.get(*actor) {
                 if let Ok(actor_coords) = coordinates.get(*actor) {
                     if actor_coords.distance(player_coords) <= viewshed.range as f32
@@ -1198,7 +1199,7 @@ fn sees_player_scorer(
                     }
                 }
             }
-        }
+        });
         *last_player_coords = Some(coords);
     }
 }
