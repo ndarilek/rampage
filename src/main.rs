@@ -1277,7 +1277,6 @@ fn bullet(
         if let Some((prev_coords, total_distance)) = active_bullets.get_mut(&entity) {
             *total_distance += prev_coords.distance(coordinates);
             if total_distance >= &mut (**range as f32) {
-                commands.entity(entity).despawn_recursive();
                 remove = true;
             }
             let mut ratio = 1. - *total_distance / **range as f32;
