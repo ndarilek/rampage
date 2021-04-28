@@ -85,6 +85,7 @@ fn main() {
         .add_plugin(visibility::VisibilityPlugin)
         .add_event::<Reset>()
         .add_event::<RobotKilled>()
+        .add_event::<WallCollision>()
         .add_state(AppState::Loading)
         .init_resource::<AssetHandles>()
         .init_resource::<Sfx>()
@@ -544,7 +545,7 @@ fn exit_post_processor(
             commands.entity(entity).insert(Name::new("Exit"));
             commands.entity(entity).insert(SoundIcon {
                 sound: sfx.exit,
-                gain: 0.5,
+                gain: 0.4,
                 interval: None,
                 ..Default::default()
             });
@@ -1391,8 +1392,9 @@ fn investigate_coordinates(
     bullets: Query<(&Bullet, Entity, &Coordinates)>,
     mut seen_bullets: Local<HashMap<Entity, HashSet<Entity>>>,
     mut robot_kills: EventReader<RobotKilled>,
+    mut wall_collisions: EventReader<WallCollision>,
 ) {
-    for (entity, viewshed, robot_coords) in actors.iter() {
+    for (entity, viewshed, _) in actors.iter() {
         if !seen_bullets.contains_key(&entity) {
             seen_bullets.insert(entity, HashSet::new());
         }
@@ -1407,11 +1409,22 @@ fn investigate_coordinates(
                 }
             }
         }
-        for RobotKilled(_, old_robot_coords, _, _) in robot_kills.iter() {
-            if robot_coords.distance(old_robot_coords) <= 50. {
+    }
+    for RobotKilled(_, old_robot_coords, _, _) in robot_kills.iter() {
+        for (entity, _, robot_coords) in actors.iter() {
+            if robot_coords.distance(old_robot_coords) <= 20. {
                 commands
                     .entity(entity)
                     .insert(InvestigateCoordinates(old_robot_coords.i32()));
+            }
+        }
+    }
+    for WallCollision(coords) in wall_collisions.iter() {
+        for (entity, _, robot_coords) in actors.iter() {
+            if robot_coords.distance(coords) <= 30. {
+                commands
+                    .entity(entity)
+                    .insert(InvestigateCoordinates(coords.i32()));
             }
         }
     }
@@ -1801,18 +1814,21 @@ enum CauseOfDeath {
 
 struct RobotKilled(Entity, Coordinates, usize, CauseOfDeath);
 
+struct WallCollision(Coordinates);
+
 fn collision(
     mut commands: Commands,
     buffers: Res<Assets<Buffer>>,
     sfx: Res<Sfx>,
     mut collisions: EventReader<Collision>,
     bullets: Query<&Bullet>,
-    player: Query<(Entity, &Player, Option<&WallCollisionTimer>)>,
+    player: Query<(Entity, &Player, &Coordinates, Option<&WallCollisionTimer>)>,
     state: Res<State<AppState>>,
     robots: Query<(&Robot, &Name)>,
     mut log: Query<&mut Log>,
     map: Query<(Entity, &Map)>,
     mut life_lost: EventWriter<LifeLost>,
+    mut wall_collisions: EventWriter<WallCollision>,
 ) {
     for event in collisions.iter() {
         if bullets.get(event.entity).is_ok() {
@@ -1842,7 +1858,7 @@ fn collision(
             }
             commands.entity(event.entity).despawn_recursive();
         }
-        for (player_entity, _, wall_collision_timer) in player.iter() {
+        for (player_entity, _, player_coordinates, wall_collision_timer) in player.iter() {
             let current_state = state.current();
             if *current_state == AppState::InGame && event.entity == player_entity {
                 for (map_entity, map) in map.iter() {
@@ -1852,6 +1868,7 @@ fn collision(
                     ) == TileType::Wall
                     {
                         if wall_collision_timer.is_none() {
+                            wall_collisions.send(WallCollision(*player_coordinates));
                             commands
                                 .entity(player_entity)
                                 .insert(WallCollisionTimer::default());
