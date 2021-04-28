@@ -750,8 +750,8 @@ fn spawn_robots(
     }
 }
 
-#[derive(Clone, Debug, Deref, DerefMut)]
-struct DeathTimer(Timer);
+#[derive(Clone, Debug)]
+struct DeathTimer(Timer, Name);
 
 fn robot_killed(
     mut commands: Commands,
@@ -768,21 +768,31 @@ fn robot_killed(
     non_exploding_robots: Query<(Entity, &Robot, &Coordinates), Without<DeathTimer>>,
     mut killed: Local<HashSet<Entity>>,
 ) {
-    for RobotKilled(entity, index) in events.iter() {
+    for RobotKilled(entity, index, cause) in events.iter() {
         if !killed.contains(&entity) {
             if let Ok(mut log) = log.single_mut() {
                 if let Ok(name) = names.get(*entity) {
-                    let mut messages = vec![
-                        "is toast!",
-                        "is defeated!",
-                        "is no more!",
-                        "is obliterated!",
-                        "exits stage left!",
-                        "just suffered a warranty-voiding event!",
-                    ];
-                    messages.shuffle(&mut thread_rng());
-                    let message = format!("{} {}", **name, messages[0]);
-                    log.push(message);
+                    match cause {
+                        CauseOfDeath::Bullet(_) => {
+                            let mut messages = vec![
+                                "is toast!",
+                                "is defeated!",
+                                "is no more!",
+                                "is obliterated!",
+                                "exits stage left!",
+                                "just suffered a warranty-voiding event!",
+                            ];
+                            messages.shuffle(&mut thread_rng());
+                            let message = format!("{} {}", **name, messages[0]);
+                            log.push(message);
+                        }
+                        CauseOfDeath::Shockwave(owner) => {
+                            log.push(format!(
+                                "{} is taken out by an exploding {}!",
+                                **name, **owner
+                            ));
+                        }
+                    };
                 }
             }
             commands.entity(*entity).despawn_recursive();
@@ -814,9 +824,12 @@ fn robot_killed(
                     }
                     let distance = robot_coordinates.distance(candidate_coordinates);
                     if distance <= 5. {
-                        commands
-                            .entity(candidate_entity)
-                            .insert(DeathTimer(Timer::from_seconds(distance / 2., false)));
+                        if let Ok(name) = names.get(*entity) {
+                            commands.entity(candidate_entity).insert(DeathTimer(
+                                Timer::from_seconds(distance / 2., false),
+                                name.clone(),
+                            ));
+                        }
                     }
                 }
             }
@@ -832,11 +845,15 @@ fn shockwave(
     mut robot_killed: EventWriter<RobotKilled>,
 ) {
     for (entity, coordinates, mut timer) in exploding.iter_mut() {
-        timer.tick(time.delta());
-        if timer.finished() {
+        timer.0.tick(time.delta());
+        if timer.0.finished() {
             if let Ok(map) = level.single() {
                 let index = coordinates.to_index(map.width());
-                robot_killed.send(RobotKilled(entity, index));
+                robot_killed.send(RobotKilled(
+                    entity,
+                    index,
+                    CauseOfDeath::Shockwave(timer.1.clone()),
+                ));
             }
         }
     }
@@ -1403,7 +1420,7 @@ fn bullet(
             if *owner != entity && coordinates.distance(robot_coordinates) <= 1. {
                 if let Ok(map) = level.single() {
                     let index = robot_coordinates.to_index(map.width());
-                    robot_killed.send(RobotKilled(entity, index));
+                    robot_killed.send(RobotKilled(entity, index, CauseOfDeath::Bullet(*owner)));
                 }
                 remove = true;
                 break;
@@ -1641,7 +1658,12 @@ fn tick_between_lives_timer(
     Ok(())
 }
 
-struct RobotKilled(Entity, usize);
+enum CauseOfDeath {
+    Bullet(Entity),
+    Shockwave(Name),
+}
+
+struct RobotKilled(Entity, usize, CauseOfDeath);
 
 fn collision(
     mut commands: Commands,
