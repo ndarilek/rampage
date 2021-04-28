@@ -1060,7 +1060,7 @@ fn speak_info(
     }
     if input.just_active(SPEAK_ROBOT_COUNT) {
         let robot_count = robots.iter().len();
-        let robot_or_robots = if robot_count == 1 { "RObot" } else { "robots" };
+        let robot_or_robots = if robot_count == 1 { "robot" } else { "robots" };
         tts.speak(
             format!("{} {} remaining.", robot_count, robot_or_robots),
             true,
