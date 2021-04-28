@@ -111,6 +111,8 @@ fn main() {
         .add_system(sees_player_scorer.system())
         .add_system_to_stage(CoreStage::PreUpdate, pursue_player.system())
         .add_system(taunt_player.system())
+        .add_system(curious_scorer.system())
+        .add_system_to_stage(CoreStage::PreUpdate, investigate.system())
         .add_system(robot_killed.system())
         .add_system(bonus.system())
         .add_system(bonus_clear.system())
@@ -714,7 +716,8 @@ fn spawn_robots(
                             .insert(
                                 Thinker::build()
                                     .picker(FirstToScore { threshold: 0.8 })
-                                    .when(SeesPlayer::build(), PursuePlayer::build()),
+                                    .when(SeesPlayer::build(), PursuePlayer::build())
+                                    .when(Curious::build(), Investigate::build()),
                             )
                             .with_children(|parent| {
                                 let mut timer = Timer::from_seconds(10., false);
@@ -1386,6 +1389,120 @@ fn shoot_player(
                     }
                     timer.reset();
                 }
+            }
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct Curious;
+
+impl Curious {
+    fn build() -> CuriousBuilder {
+        CuriousBuilder
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct CuriousBuilder;
+
+impl ScorerBuilder for CuriousBuilder {
+    fn build(&self, cmd: &mut Commands, scorer: Entity, _actor: Entity) {
+        cmd.entity(scorer).insert(Curious);
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deref, DerefMut)]
+struct InvestigateCoordinates((i32, i32));
+
+fn curious_scorer(
+    mut commands: Commands,
+    mut query: Query<(&Actor, &mut Score), With<Curious>>,
+    actors: Query<(&Viewshed)>,
+    bullets: Query<(&Bullet, Entity, &Coordinates)>,
+    mut seen_bullets: Local<HashMap<Entity, HashSet<Entity>>>,
+) {
+    for (Actor(actor), mut score) in query.iter_mut() {
+        if !seen_bullets.contains_key(actor) {
+            seen_bullets.insert(*actor, HashSet::new());
+        }
+        if let Ok((viewshed)) = actors.get(*actor) {
+            for (_, bullet_entity, bullet_coordinates) in bullets.iter() {
+                if let Some(seen_bullets) = seen_bullets.get_mut(actor) {
+                    if !seen_bullets.contains(&bullet_entity)
+                        && viewshed.is_visible(bullet_coordinates)
+                    {
+                        commands
+                            .entity(*actor)
+                            .insert(InvestigateCoordinates(bullet_coordinates.i32()));
+                        seen_bullets.insert(bullet_entity);
+                        score.set(0.8);
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct Investigate;
+
+impl Investigate {
+    fn build() -> InvestigateBuilder {
+        InvestigateBuilder
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct InvestigateBuilder;
+
+impl ActionBuilder for InvestigateBuilder {
+    fn build(&self, cmd: &mut Commands, action: Entity, _actor: Entity) {
+        cmd.entity(action).insert(Investigate);
+    }
+}
+
+fn investigate(
+    mut commands: Commands,
+    mut query: Query<(&Actor, &mut ActionState), With<Investigate>>,
+    investigations: Query<&InvestigateCoordinates>,
+    max_speeds: Query<&MaxSpeed>,
+    destinations: Query<&Destination>,
+    coordinates: Query<&Coordinates>,
+) {
+    for (Actor(actor), mut state) in query.iter_mut() {
+        match *state {
+            ActionState::Init => {}
+            ActionState::Requested => {
+                if let Ok(destination) = investigations.get(*actor) {
+                    if let Ok(max_speed) = max_speeds.get(*actor) {
+                        commands
+                            .entity(*actor)
+                            .insert(Destination(**destination))
+                            .insert(Speed(**max_speed));
+                        *state = ActionState::Executing;
+                    } else {
+                        *state = ActionState::Failure;
+                    }
+                } else {
+                    *state = ActionState::Failure;
+                }
+            }
+            ActionState::Executing => {
+                if let Ok(destination) = destinations.get(*actor) {
+                    if let Ok(coordinates) = coordinates.get(*actor) {
+                        if destination.distance(coordinates) <= 1. {
+                            *state = ActionState::Success;
+                        }
+                    } else {
+                        *state = ActionState::Failure;
+                    }
+                } else {
+                    *state = ActionState::Failure;
+                }
+            }
+            _ => {
+                commands.entity(*actor).remove::<InvestigateCoordinates>();
             }
         }
     }
