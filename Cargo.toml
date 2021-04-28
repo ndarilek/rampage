@@ -30,7 +30,7 @@ backtrace = "0.3"
 bevy_input_actionmap = { path = "crates/bevy_input_actionmap" }
 bevy_openal = { path = "crates/bevy_openal" }
 bevy_tts = { path = "crates/bevy_tts" }
-big-brain = "0.4"
+big-brain = "0.5"
 coord_2d = "0.3"
 crossbeam-channel = "0.5"
 derive_more = "0.99"

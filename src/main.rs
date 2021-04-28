@@ -111,6 +111,7 @@ fn main() {
         .add_system(sees_player_scorer.system())
         .add_system_to_stage(CoreStage::PreUpdate, pursue_player.system())
         .add_system(taunt_player.system())
+        .add_system_to_stage(CoreStage::PreUpdate, investigate_coordinates.system())
         .add_system(curious_scorer.system())
         .add_system_to_stage(CoreStage::PreUpdate, investigate.system())
         .add_system(robot_killed.system())
@@ -543,7 +544,7 @@ fn exit_post_processor(
             commands.entity(entity).insert(Name::new("Exit"));
             commands.entity(entity).insert(SoundIcon {
                 sound: sfx.exit,
-                gain: 0.6,
+                gain: 0.5,
                 interval: None,
                 ..Default::default()
             });
@@ -731,7 +732,7 @@ fn spawn_robots(
                                     footstep: Footstep {
                                         sound: sfx.robot_footstep,
                                         step_length: 2.,
-                                        gain: 1.,
+                                        gain: 1.5,
                                         pitch_variation: None,
                                     },
                                     ..Default::default()
@@ -773,7 +774,7 @@ fn robot_killed(
     non_exploding_robots: Query<(Entity, &Robot, &Coordinates), Without<DeathTimer>>,
     mut killed: Local<HashSet<Entity>>,
 ) {
-    for RobotKilled(entity, index, cause) in events.iter() {
+    for RobotKilled(entity, _, index, cause) in events.iter() {
         if !killed.contains(&entity) {
             if let Ok(mut log) = log.single_mut() {
                 if let Ok(name) = names.get(*entity) {
@@ -856,6 +857,7 @@ fn shockwave(
                 let index = coordinates.to_index(map.width());
                 robot_killed.send(RobotKilled(
                     entity,
+                    *coordinates,
                     index,
                     CauseOfDeath::Shockwave(timer.1.clone()),
                 ));
@@ -1197,33 +1199,19 @@ impl ScorerBuilder for SeesPlayerBuilder {
 
 fn sees_player_scorer(
     mut query: Query<(&Actor, &mut Score), With<SeesPlayer>>,
-    coordinates: Query<&Coordinates>,
     viewsheds: Query<&Viewshed>,
     player: Query<(&Player, &Coordinates)>,
-    mut last_player_coords: Local<Option<(i32, i32)>>,
 ) {
     if let Ok((_, player_coords)) = player.single() {
-        let coords = player_coords.i32();
-        if last_player_coords.is_none() {
-            *last_player_coords = Some(coords);
-        }
-        if *last_player_coords == Some(coords) {
-            return;
-        }
         for (Actor(actor), mut score) in query.iter_mut() {
             if let Ok(viewshed) = viewsheds.get(*actor) {
-                if let Ok(actor_coords) = coordinates.get(*actor) {
-                    if actor_coords.distance(player_coords) <= viewshed.range as f32
-                        && viewshed.is_visible(player_coords)
-                    {
-                        score.set(1.);
-                    } else {
-                        score.set(0.);
-                    }
+                if viewshed.is_visible(player_coords) {
+                    score.set(1.);
+                    continue;
                 }
             }
+            score.set(0.);
         }
-        *last_player_coords = Some(coords);
     }
 }
 
@@ -1394,6 +1382,41 @@ fn shoot_player(
     }
 }
 
+#[derive(Clone, Copy, Debug, Deref, DerefMut)]
+struct InvestigateCoordinates((i32, i32));
+
+fn investigate_coordinates(
+    mut commands: Commands,
+    actors: Query<(Entity, &Viewshed, &Coordinates), With<Robot>>,
+    bullets: Query<(&Bullet, Entity, &Coordinates)>,
+    mut seen_bullets: Local<HashMap<Entity, HashSet<Entity>>>,
+    mut robot_kills: EventReader<RobotKilled>,
+) {
+    for (entity, viewshed, robot_coords) in actors.iter() {
+        if !seen_bullets.contains_key(&entity) {
+            seen_bullets.insert(entity, HashSet::new());
+        }
+        for (_, bullet_entity, bullet_coordinates) in bullets.iter() {
+            if let Some(seen_bullets) = seen_bullets.get_mut(&entity) {
+                if !seen_bullets.contains(&bullet_entity) && viewshed.is_visible(bullet_coordinates)
+                {
+                    commands
+                        .entity(entity)
+                        .insert(InvestigateCoordinates(bullet_coordinates.i32()));
+                    seen_bullets.insert(bullet_entity);
+                }
+            }
+        }
+        for RobotKilled(_, old_robot_coords, _, _) in robot_kills.iter() {
+            if robot_coords.distance(old_robot_coords) <= 50. {
+                commands
+                    .entity(entity)
+                    .insert(InvestigateCoordinates(old_robot_coords.i32()));
+            }
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 struct Curious;
 
@@ -1412,34 +1435,15 @@ impl ScorerBuilder for CuriousBuilder {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deref, DerefMut)]
-struct InvestigateCoordinates((i32, i32));
-
 fn curious_scorer(
-    mut commands: Commands,
     mut query: Query<(&Actor, &mut Score), With<Curious>>,
-    actors: Query<(&Viewshed)>,
-    bullets: Query<(&Bullet, Entity, &Coordinates)>,
-    mut seen_bullets: Local<HashMap<Entity, HashSet<Entity>>>,
+    investigations: Query<&InvestigateCoordinates>,
 ) {
     for (Actor(actor), mut score) in query.iter_mut() {
-        if !seen_bullets.contains_key(actor) {
-            seen_bullets.insert(*actor, HashSet::new());
-        }
-        if let Ok((viewshed)) = actors.get(*actor) {
-            for (_, bullet_entity, bullet_coordinates) in bullets.iter() {
-                if let Some(seen_bullets) = seen_bullets.get_mut(actor) {
-                    if !seen_bullets.contains(&bullet_entity)
-                        && viewshed.is_visible(bullet_coordinates)
-                    {
-                        commands
-                            .entity(*actor)
-                            .insert(InvestigateCoordinates(bullet_coordinates.i32()));
-                        seen_bullets.insert(bullet_entity);
-                        score.set(0.8);
-                    }
-                }
-            }
+        if investigations.get(*actor).is_ok() {
+            score.set(0.8);
+        } else {
+            score.set(0.);
         }
     }
 }
@@ -1491,7 +1495,7 @@ fn investigate(
             ActionState::Executing => {
                 if let Ok(destination) = destinations.get(*actor) {
                     if let Ok(coordinates) = coordinates.get(*actor) {
-                        if destination.distance(coordinates) <= 1. {
+                        if destination.distance(coordinates) <= 3. {
                             *state = ActionState::Success;
                         }
                     } else {
@@ -1500,6 +1504,9 @@ fn investigate(
                 } else {
                     *state = ActionState::Failure;
                 }
+            }
+            ActionState::Cancelled => {
+                *state = ActionState::Success;
             }
             _ => {
                 commands.entity(*actor).remove::<InvestigateCoordinates>();
@@ -1541,7 +1548,12 @@ fn bullet(
             if *owner != entity && coordinates.distance(robot_coordinates) <= 1. {
                 if let Ok(map) = level.single() {
                     let index = robot_coordinates.to_index(map.width());
-                    robot_killed.send(RobotKilled(entity, index, CauseOfDeath::Bullet(*owner)));
+                    robot_killed.send(RobotKilled(
+                        entity,
+                        *robot_coordinates,
+                        index,
+                        CauseOfDeath::Bullet(*owner),
+                    ));
                 }
                 remove = true;
                 break;
@@ -1787,7 +1799,7 @@ enum CauseOfDeath {
     Shockwave(Name),
 }
 
-struct RobotKilled(Entity, usize, CauseOfDeath);
+struct RobotKilled(Entity, Coordinates, usize, CauseOfDeath);
 
 fn collision(
     mut commands: Commands,
