@@ -539,7 +539,7 @@ fn exit_post_processor(
             commands.entity(entity).insert(Name::new("Exit"));
             commands.entity(entity).insert(SoundIcon {
                 sound: sfx.exit,
-                gain: 0.1,
+                gain: 0.3,
                 interval: None,
                 ..Default::default()
             });
@@ -726,7 +726,7 @@ fn spawn_robots(
                                     footstep: Footstep {
                                         sound: sfx.robot_footstep,
                                         step_length: 2.,
-                                        gain: 0.7,
+                                        gain: 1.,
                                         pitch_variation: None,
                                     },
                                     ..Default::default()
@@ -734,6 +734,7 @@ fn spawn_robots(
                                 parent.spawn().insert_bundle(SoundIconBundle {
                                     sound_icon: SoundIcon {
                                         sound,
+                                        gain: 0.8,
                                         ..Default::default()
                                     },
                                     ..Default::default()
@@ -1283,7 +1284,7 @@ fn taunt_player(
                     let sound = Sound {
                         buffer,
                         state: SoundState::Playing,
-                        gain: 1.5,
+                        gain: 2.,
                         ..Default::default()
                     };
                     commands.entity(voice).insert(sound);
@@ -1523,7 +1524,7 @@ fn next_exit_added(
 ) {
     for (_, mut icon) in next_exit.iter_mut() {
         icon.sound = sfx.exit_correct;
-        icon.gain = 0.4;
+        icon.gain = 0.6;
     }
 }
 
@@ -1535,7 +1536,7 @@ fn next_exit_removed(
     for entity in removed.iter() {
         if let Ok(mut icon) = icons.get_component_mut::<SoundIcon>(entity) {
             icon.sound = sfx.exit;
-            icon.gain = 0.1;
+            icon.gain = 0.3;
         }
     }
 }
