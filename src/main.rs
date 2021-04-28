@@ -327,7 +327,7 @@ impl Default for PlayerBundle {
             lives: Default::default(),
             checkpoint: Default::default(),
             level: Default::default(),
-            shot_timer: ShotTimer(Timer::from_seconds(0.15, false)),
+            shot_timer: ShotTimer(Timer::from_seconds(0.1, false)),
             shot_range: ShotRange(24),
             shot_speed: ShotSpeed(36),
         }
