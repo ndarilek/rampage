@@ -1,4 +1,7 @@
-use std::cmp::{max, min};
+use std::{
+    cmp::{max, min},
+    fmt::Display,
+};
 
 use bevy::{core::FloatOrd, prelude::*, transform::TransformSystem};
 use derive_more::{Deref, DerefMut};
@@ -175,6 +178,13 @@ impl Into<String> for MovementDirection {
     }
 }
 
+impl Display for MovementDirection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str: String = (*self).into();
+        write!(f, "{}", str)
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CardinalDirection {
     North,
@@ -220,6 +230,13 @@ impl Into<String> for CardinalDirection {
             South => "south".to_string(),
             West => "west".to_string(),
         }
+    }
+}
+
+impl Display for CardinalDirection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str: String = (*self).into();
+        write!(f, "{}", str)
     }
 }
 
