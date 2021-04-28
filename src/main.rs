@@ -138,6 +138,7 @@ fn main() {
         .add_system(next_exit_added.system())
         .add_system_to_stage(CoreStage::PostUpdate, next_exit_removed.system())
         .add_system(checkpoint.system())
+        .add_event::<LifeLost>()
         .add_system(life_loss.system().chain(error_handler.system()))
         .add_system_set(
             SystemSet::on_enter(AppState::BetweenLives)
@@ -1395,8 +1396,9 @@ fn bullet(
     robots: Query<(&Robot, Entity, &Coordinates)>,
     level: Query<&Map>,
     mut robot_killed: EventWriter<RobotKilled>,
-    mut player: Query<(&Player, Entity, &Coordinates, &mut Lives)>,
+    player: Query<(&Player, Entity, &Coordinates)>,
     mut log: Query<&mut Log>,
+    mut life_lost: EventWriter<LifeLost>,
 ) {
     for (bullet, entity, coordinates, range, mut sound) in bullets.iter_mut() {
         if !active_bullets.contains_key(&entity) {
@@ -1426,11 +1428,11 @@ fn bullet(
                 break;
             }
         }
-        if let Ok((_, entity, player_coordinates, mut lives)) = player.single_mut() {
+        if let Ok((_, entity, player_coordinates)) = player.single() {
             if *owner != entity && coordinates.distance(player_coordinates) <= 1. {
                 if let Ok(mut log) = log.single_mut() {
                     log.push("Ouch!");
-                    **lives -= 1;
+                    life_lost.send(LifeLost);
                 }
                 remove = true;
             }
@@ -1584,31 +1586,34 @@ fn checkpoint(
     }
 }
 
+struct LifeLost;
+
 fn life_loss(
     mut commands: Commands,
+    mut events: EventReader<LifeLost>,
     mut state: ResMut<State<AppState>>,
     asset_server: Res<AssetServer>,
     sfx: Res<Sfx>,
-    mut player: Query<(&Player, &Lives), Changed<Lives>>,
+    mut player: Query<(&Player, &mut Lives)>,
     map: Query<(Entity, &Map)>,
 ) -> Result<(), Box<dyn Error>> {
-    for (_, lives) in player.iter_mut() {
-        if **lives == 3 {
-            return Ok(());
+    for _ in events.iter() {
+        for (_, mut lives) in player.iter_mut() {
+            **lives -= 1;
+            let buffer = asset_server.get_handle(sfx.life_lost);
+            let entity_id = commands
+                .spawn()
+                .insert(Sound {
+                    buffer,
+                    state: SoundState::Playing,
+                    ..Default::default()
+                })
+                .id();
+            if let Ok((entity, _)) = map.single() {
+                commands.entity(entity).push_children(&[entity_id]);
+            }
+            state.push(AppState::BetweenLives)?;
         }
-        let buffer = asset_server.get_handle(sfx.life_lost);
-        let entity_id = commands
-            .spawn()
-            .insert(Sound {
-                buffer,
-                state: SoundState::Playing,
-                ..Default::default()
-            })
-            .id();
-        if let Ok((entity, _)) = map.single() {
-            commands.entity(entity).push_children(&[entity_id]);
-        }
-        state.push(AppState::BetweenLives)?;
     }
     Ok(())
 }
@@ -1671,11 +1676,12 @@ fn collision(
     sfx: Res<Sfx>,
     mut collisions: EventReader<Collision>,
     bullets: Query<&Bullet>,
-    mut player: Query<(Entity, &Player, &mut Lives, Option<&WallCollisionTimer>)>,
+    player: Query<(Entity, &Player, Option<&WallCollisionTimer>)>,
     state: Res<State<AppState>>,
     robots: Query<(&Robot, &Name)>,
     mut log: Query<&mut Log>,
     map: Query<(Entity, &Map)>,
+    mut life_lost: EventWriter<LifeLost>,
 ) {
     for event in collisions.iter() {
         if bullets.get(event.entity).is_ok() {
@@ -1705,38 +1711,36 @@ fn collision(
             }
             commands.entity(event.entity).despawn_recursive();
         }
-        for (player_entity, _, mut lives, wall_collision_timer) in player.iter_mut() {
+        for (player_entity, _, wall_collision_timer) in player.iter() {
             let current_state = state.current();
-            if *current_state == AppState::InGame {
-                if event.entity == player_entity {
-                    for (map_entity, map) in map.iter() {
-                        if map.base.at(
-                            event.coordinates.x() as usize,
-                            event.coordinates.y() as usize,
-                        ) == TileType::Wall
-                        {
-                            if wall_collision_timer.is_none() {
-                                commands
-                                    .entity(player_entity)
-                                    .insert(WallCollisionTimer::default());
-                                let buffer = buffers.get_handle(sfx.wall_power_up);
-                                let sound_id = commands
-                                    .spawn()
-                                    .insert(Sound {
-                                        buffer,
-                                        state: SoundState::Playing,
-                                        gain: 0.3,
-                                        ..Default::default()
-                                    })
-                                    .id();
-                                commands.entity(map_entity).push_children(&[sound_id]);
-                            }
-                        } else if let Ok(mut log) = log.single_mut() {
-                            for entity in &map.entities[event.coordinates.to_index(map.width())] {
-                                if let Ok((_, name)) = robots.get(*entity) {
-                                    **lives -= 1;
-                                    log.push(format!("You ran into a very irate {}.", **name));
-                                }
+            if *current_state == AppState::InGame && event.entity == player_entity {
+                for (map_entity, map) in map.iter() {
+                    if map.base.at(
+                        event.coordinates.x() as usize,
+                        event.coordinates.y() as usize,
+                    ) == TileType::Wall
+                    {
+                        if wall_collision_timer.is_none() {
+                            commands
+                                .entity(player_entity)
+                                .insert(WallCollisionTimer::default());
+                            let buffer = buffers.get_handle(sfx.wall_power_up);
+                            let sound_id = commands
+                                .spawn()
+                                .insert(Sound {
+                                    buffer,
+                                    state: SoundState::Playing,
+                                    gain: 0.3,
+                                    ..Default::default()
+                                })
+                                .id();
+                            commands.entity(map_entity).push_children(&[sound_id]);
+                        }
+                    } else if let Ok(mut log) = log.single_mut() {
+                        for entity in &map.entities[event.coordinates.to_index(map.width())] {
+                            if let Ok((_, name)) = robots.get(*entity) {
+                                life_lost.send(LifeLost);
+                                log.push(format!("You ran into a very irate {}.", **name));
                             }
                         }
                     }
@@ -1749,15 +1753,16 @@ fn collision(
 fn wall_collide(
     mut commands: Commands,
     time: Res<Time>,
-    mut player: Query<(Entity, &mut WallCollisionTimer, &mut Lives)>,
+    mut player: Query<(Entity, &mut WallCollisionTimer, &Lives)>,
     mut log: Query<&mut Log>,
+    mut life_lost: EventWriter<LifeLost>,
 ) {
-    for (entity, mut timer, mut lives) in player.iter_mut() {
+    for (entity, mut timer, lives) in player.iter_mut() {
         timer.tick(time.delta());
         if timer.finished() {
             commands.entity(entity).remove::<WallCollisionTimer>();
             if **lives > 0 {
-                **lives -= 1;
+                life_lost.send(LifeLost);
             }
             if let Ok(mut log) = log.single_mut() {
                 log.push("Wall! Wall! You ran into a wall!");
@@ -1800,11 +1805,14 @@ fn level_up(
     Ok(())
 }
 
-fn level_up_enter(level: Query<&Level>, mut log: Query<&mut Log>) {
+fn level_up_enter(level: Query<&Level>, mut lives: Query<&mut Lives>, mut log: Query<&mut Log>) {
     for level in level.iter() {
+        if let Ok(mut lives) = lives.single_mut() {
+            **lives += 1;
+        }
         if let Ok(mut log) = log.single_mut() {
             log.push(format!(
-                "Congratulations! Press Enter to continue to level {}.",
+                "Congratulations! You've earned an extra life! Press Enter to continue to level {}.",
                 **level + 1
             ));
         }
