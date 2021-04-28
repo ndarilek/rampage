@@ -1158,8 +1158,8 @@ fn shoot(
                         sound: Sound {
                             buffer: buffers.get_handle(sfx.bullet),
                             state: SoundState::Playing,
-                            gain: 0.4,
                             looping: true,
+                            bypass_global_effects: true,
                             ..Default::default()
                         },
                         ..Default::default()
