@@ -34,7 +34,7 @@ mod sound;
 mod visibility;
 
 use crate::{
-    core::{Angle, Area, Coordinates, Player, PointLike},
+    core::{Angle, Area, Coordinates, MovementDirection, Player, PointLike},
     error::error_handler,
     exploration::Mappable,
     log::Log,
@@ -1036,7 +1036,8 @@ fn speak_info(
         if let Ok((_, _, transform, _, _)) = player.single() {
             let forward = transform.local_x();
             let yaw = Angle::Radians(forward.y.atan2(forward.x));
-            tts.speak(format!("{} degrees", yaw.degrees_u32()), true)?;
+            let direction: MovementDirection = yaw.into();
+            tts.speak(format!("{}", direction), true)?;
         }
     }
     if input.just_active(SPEAK_HEALTH) {
