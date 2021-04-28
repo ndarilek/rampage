@@ -891,7 +891,7 @@ fn bonus(
                     .insert(Sound {
                         buffer,
                         state: SoundState::Playing,
-                        gain: 1.5,
+                        gain: 3.,
                         pitch,
                         ..Default::default()
                     })
@@ -926,7 +926,7 @@ fn bonus_clear(
                     .insert(Sound {
                         buffer,
                         state: SoundState::Playing,
-                        gain: 1.5,
+                        gain: 3.,
                         ..Default::default()
                     })
                     .id();
