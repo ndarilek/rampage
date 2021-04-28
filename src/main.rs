@@ -539,7 +539,7 @@ fn exit_post_processor(
             commands.entity(entity).insert(Name::new("Exit"));
             commands.entity(entity).insert(SoundIcon {
                 sound: sfx.exit,
-                gain: 0.3,
+                gain: 0.6,
                 interval: None,
                 ..Default::default()
             });
@@ -1524,7 +1524,6 @@ fn next_exit_added(
 ) {
     for (_, mut icon) in next_exit.iter_mut() {
         icon.sound = sfx.exit_correct;
-        icon.gain = 0.6;
     }
 }
 
@@ -1536,7 +1535,6 @@ fn next_exit_removed(
     for entity in removed.iter() {
         if let Ok(mut icon) = icons.get_component_mut::<SoundIcon>(entity) {
             icon.sound = sfx.exit;
-            icon.gain = 0.3;
         }
     }
 }
