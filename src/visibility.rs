@@ -165,11 +165,14 @@ impl InputGrid for VisibilityGrid {
 }
 
 fn update_viewshed(
-    map: Query<(&Map, &VisibilityBlocked), Changed<VisibilityBlocked>>,
-    mut viewers: Query<(&mut Viewshed, &Coordinates)>,
+    mut viewers: Query<
+        (&mut Viewshed, &Coordinates),
+        Or<(Changed<VisibilityBlocked>, Changed<Coordinates>)>,
+    >,
+    map: Query<(&Map, &VisibilityBlocked)>,
 ) {
-    for (map, visibility_blocked) in map.iter() {
-        for (mut viewshed, start) in viewers.iter_mut() {
+    for (mut viewshed, start) in viewers.iter_mut() {
+        for (map, visibility_blocked) in map.iter() {
             let mut context: Context<u8> = Context::default();
             let vision_distance = vision_distance::Circle::new(viewshed.range);
             let coord = Coord::new(start.x_i32(), start.y_i32());
