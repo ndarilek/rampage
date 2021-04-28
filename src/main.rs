@@ -1653,6 +1653,7 @@ fn collision(
     bullets: Query<&Bullet>,
     mut player: Query<(Entity, &Player, &mut Lives, Option<&WallCollisionTimer>)>,
     state: Res<State<AppState>>,
+    robots: Query<(&Robot, &Name)>,
     mut log: Query<&mut Log>,
     map: Query<(Entity, &Map)>,
 ) {
@@ -1710,10 +1711,12 @@ fn collision(
                                     .id();
                                 commands.entity(map_entity).push_children(&[sound_id]);
                             }
-                        } else {
-                            **lives -= 1;
-                            if let Ok(mut log) = log.single_mut() {
-                                log.push("You ran into a very irate robot.");
+                        } else if let Ok(mut log) = log.single_mut() {
+                            for entity in &map.entities[event.coordinates.to_index(map.width())] {
+                                if let Ok((_, name)) = robots.get(*entity) {
+                                    **lives -= 1;
+                                    log.push(format!("You ran into a very irate {}.", **name));
+                                }
                             }
                         }
                     }
