@@ -74,6 +74,7 @@ fn main() {
         .add_plugin(exploration::ExplorationPlugin)
         .add_plugin(log::LogPlugin)
         .insert_resource(MapConfig {
+            speak_area_descriptions: false,
             start_revealed: true,
             ..Default::default()
         })
