@@ -127,13 +127,11 @@ fn main() {
                 .with_system(snap.system())
                 .with_system(shoot.system())
                 .with_system(shoot_player.system())
+                .with_system(bullet.system())
                 .with_system(wall_collide.system())
                 .with_system(wall_uncollide.system())
                 .with_system(level_up.system().chain(error_handler.system()))
                 .with_system(shockwave.system()),
-        )
-        .add_system_set(
-            SystemSet::on_in_stack_update(AppState::InGame).with_system(bullet.system()),
         )
         .add_system(
             highlight_next_exit
@@ -147,7 +145,8 @@ fn main() {
         .add_system(life_loss.system().chain(error_handler.system()))
         .add_system_set(
             SystemSet::on_enter(AppState::BetweenLives)
-                .with_system(reset_between_lives_timer.system()),
+                .with_system(reset_between_lives_timer.system())
+                .with_system(despawn_player_bullets.system()),
         )
         .add_system_set(
             SystemSet::on_update(AppState::BetweenLives).with_system(
@@ -1530,10 +1529,13 @@ fn investigate(
 
 fn bullet(
     mut commands: Commands,
+    buffers: Res<Assets<Buffer>>,
+    sfx: Res<Sfx>,
     mut bullets: Query<(&Bullet, Entity, &Coordinates, &ShotRange, &mut Sound)>,
     mut active_bullets: Local<HashMap<Entity, ((f32, f32), f32)>>,
+    state: Res<State<AppState>>,
     robots: Query<(&Robot, Entity, &Coordinates)>,
-    level: Query<&Map>,
+    level: Query<(Entity, &Map)>,
     mut robot_killed: EventWriter<RobotKilled>,
     player: Query<(&Player, Entity, &Coordinates)>,
     mut log: Query<&mut Log>,
@@ -1543,7 +1545,32 @@ fn bullet(
         if !active_bullets.contains_key(&entity) {
             active_bullets.insert(entity, ((coordinates.x(), coordinates.y()), 0.));
         }
+        if *state.current() == AppState::BetweenLives {
+            println!("Should pause");
+            sound.pause();
+        } else if sound.state != SoundState::Playing {
+            sound.play();
+        }
         let mut remove = false;
+        if let Ok((map_entity, map)) = level.single() {
+            if map.base.at(coordinates.x_usize(), coordinates.y_usize()) == TileType::Wall {
+                let transform =
+                    Transform::from_translation(Vec3::new(coordinates.x(), coordinates.y(), 0.));
+                let zap = commands
+                    .spawn()
+                    .insert(transform)
+                    .insert(Sound {
+                        buffer: buffers.get_handle(sfx.bullet_wall),
+                        state: SoundState::Playing,
+                        gain: 0.8,
+                        pitch: (0.9 + random::<f32>() * 0.2),
+                        ..Default::default()
+                    })
+                    .id();
+                commands.entity(map_entity).push_children(&[zap]);
+                remove = true;
+            }
+        }
         if let Some((prev_coords, total_distance)) = active_bullets.get_mut(&entity) {
             *total_distance += prev_coords.distance(coordinates);
             if total_distance >= &mut (**range as f32) {
@@ -1559,7 +1586,7 @@ fn bullet(
         let Bullet(owner) = bullet;
         for (_, entity, robot_coordinates) in robots.iter() {
             if *owner != entity && coordinates.distance(robot_coordinates) <= 1. {
-                if let Ok(map) = level.single() {
+                if let Ok((_, map)) = level.single() {
                     let index = robot_coordinates.to_index(map.width());
                     robot_killed.send(RobotKilled(
                         entity,
@@ -1775,6 +1802,21 @@ fn reset_between_lives_timer(mut timer: ResMut<BetweenLivesTimer>) {
     timer.reset();
 }
 
+fn despawn_player_bullets(
+    mut commands: Commands,
+    player: Query<Entity, With<Player>>,
+    bullets: Query<(Entity, &Bullet)>,
+) {
+    if let Ok(player_entity) = player.single() {
+        for (bullet_entity, bullet) in bullets.iter() {
+            let Bullet(owner) = bullet;
+            if *owner == player_entity {
+                commands.entity(bullet_entity).despawn_recursive();
+            }
+        }
+    }
+}
+
 fn tick_between_lives_timer(
     time: Res<Time>,
     mut timer: ResMut<BetweenLivesTimer>,
@@ -1821,7 +1863,6 @@ fn collision(
     buffers: Res<Assets<Buffer>>,
     sfx: Res<Sfx>,
     mut collisions: EventReader<Collision>,
-    bullets: Query<&Bullet>,
     player: Query<(Entity, &Player, &Coordinates, Option<&WallCollisionTimer>)>,
     state: Res<State<AppState>>,
     robots: Query<(&Robot, &Name)>,
@@ -1831,33 +1872,6 @@ fn collision(
     mut wall_collisions: EventWriter<WallCollision>,
 ) {
     for event in collisions.iter() {
-        if bullets.get(event.entity).is_ok() {
-            if let Ok((entity, map)) = map.single() {
-                if map.base.at(
-                    event.coordinates.x() as usize,
-                    event.coordinates.y() as usize,
-                ) == TileType::Wall
-                {
-                    let transform = Transform::from_translation(Vec3::new(
-                        event.coordinates.x(),
-                        event.coordinates.y(),
-                        0.,
-                    ));
-                    let zap = commands
-                        .spawn()
-                        .insert(transform)
-                        .insert(Sound {
-                            buffer: buffers.get_handle(sfx.bullet_wall),
-                            state: SoundState::Playing,
-                            gain: 0.8,
-                            ..Default::default()
-                        })
-                        .id();
-                    commands.entity(entity).push_children(&[zap]);
-                }
-            }
-            commands.entity(event.entity).despawn_recursive();
-        }
         for (player_entity, _, player_coordinates, wall_collision_timer) in player.iter() {
             let current_state = state.current();
             if *current_state == AppState::InGame && event.entity == player_entity {
