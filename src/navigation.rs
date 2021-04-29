@@ -175,9 +175,9 @@ fn movement(
     time: Res<Time>,
     mut collision_events: EventWriter<Collision>,
     map: Query<(&Map, &MotionBlocked, &CollisionsMonitored)>,
-    mut entities: Query<(Entity, &Velocity, &mut Coordinates)>,
+    mut entities: Query<(Entity, &Velocity, &mut Coordinates, Option<&BlocksMotion>)>,
 ) {
-    for (entity, velocity, mut coordinates) in entities.iter_mut() {
+    for (entity, velocity, mut coordinates, blocks_motion) in entities.iter_mut() {
         if **velocity != Vec2::ZERO {
             let displacement = **velocity * time.delta_seconds();
             let mut point = **coordinates;
@@ -187,7 +187,10 @@ fn movement(
                 let idx = point.to_index(map.width());
                 if idx < map.base.tiles.len() {
                     let current_entities = &map.entities[idx];
-                    if motion_blocked[idx] && !current_entities.contains(&entity) {
+                    if blocks_motion.is_some()
+                        && motion_blocked[idx]
+                        && !current_entities.contains(&entity)
+                    {
                         collision_events.send(Collision {
                             entity,
                             coordinates: point,
