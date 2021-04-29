@@ -738,7 +738,10 @@ fn spawn_robots(
                                         sound: sfx.robot_footstep,
                                         step_length: 2.,
                                         gain: 1.5,
+                                        reference_distance: 10.,
+                                        rolloff_factor: 1.5,
                                         pitch_variation: None,
+                                        ..Default::default()
                                     },
                                     ..Default::default()
                                 });
