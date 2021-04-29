@@ -17,6 +17,9 @@ pub struct Footstep {
     pub sound: HandleId,
     pub step_length: f32,
     pub gain: f32,
+    pub reference_distance: f32,
+    pub max_distance: f32,
+    pub rolloff_factor: f32,
     pub pitch_variation: Option<f32>,
 }
 
@@ -26,6 +29,9 @@ impl Default for Footstep {
             sound: "".into(),
             step_length: 0.8,
             gain: 0.05,
+            reference_distance: 1.,
+            max_distance: f32::MAX,
+            rolloff_factor: 1.,
             pitch_variation: Some(0.15),
         }
     }
@@ -36,6 +42,9 @@ pub struct SoundIcon {
     pub sound: HandleId,
     pub gain: f32,
     pub pitch: f32,
+    pub reference_distance: f32,
+    pub max_distance: f32,
+    pub rolloff_factor: f32,
     pub interval: Option<Timer>,
 }
 
@@ -46,6 +55,9 @@ impl Default for SoundIcon {
             sound: "".into(),
             gain: 0.3,
             pitch: 1.,
+            reference_distance: 1.,
+            max_distance: f32::MAX,
+            rolloff_factor: 1.,
             interval: Some(Timer::from_seconds(seconds, true)),
         };
         if let Some(ref mut interval) = icon.interval {
@@ -89,6 +101,9 @@ fn footstep(
                     let sound = children[0];
                     if let Ok(mut sound) = sounds.get_mut(sound) {
                         sound.gain = footstep.gain;
+                        sound.reference_distance = footstep.reference_distance;
+                        sound.max_distance = footstep.max_distance;
+                        sound.rolloff_factor = footstep.rolloff_factor;
                         if let Some(pitch_variation) = footstep.pitch_variation {
                             let mut pitch = 1. - pitch_variation / 2.;
                             pitch += random::<f32>() * pitch_variation;
@@ -190,6 +205,9 @@ fn sound_icon(
                                 }
                                 sound.gain = icon.gain;
                                 sound.pitch = icon.pitch;
+                                sound.reference_distance = icon.reference_distance;
+                                sound.max_distance = icon.max_distance;
+                                sound.rolloff_factor = icon.rolloff_factor;
                             }
                         }
                     }
