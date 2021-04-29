@@ -383,11 +383,23 @@ impl From<&dyn PointLike> for (i32, i32) {
 pub struct Player;
 
 fn copy_coordinates_to_transform(
+    config: Res<CoreConfig>,
     mut query: Query<(&Coordinates, &mut Transform), Changed<Coordinates>>,
 ) {
     for (coordinates, mut transform) in query.iter_mut() {
-        transform.translation.x = coordinates.0 .0;
-        transform.translation.y = coordinates.0 .1;
+        transform.translation.x = coordinates.0 .0 * config.pixels_per_unit as f32;
+        transform.translation.y = coordinates.0 .1 * config.pixels_per_unit as f32;
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct CoreConfig {
+    pub pixels_per_unit: u8,
+}
+
+impl Default for CoreConfig {
+    fn default() -> Self {
+        Self { pixels_per_unit: 1 }
     }
 }
 
@@ -395,6 +407,9 @@ pub struct CorePlugin;
 
 impl Plugin for CorePlugin {
     fn build(&self, app: &mut AppBuilder) {
+        if !app.world().contains_resource::<CoreConfig>() {
+            app.insert_resource(CoreConfig::default());
+        }
         app.register_type::<Coordinates>()
             .add_system(copy_coordinates_to_transform.system())
             .add_system_to_stage(
