@@ -601,6 +601,7 @@ fn spawn_robots(
     sfx: Res<Sfx>,
     level: Query<&Level>,
     map: Query<(Entity, &Map, &Areas), Added<Areas>>,
+    mut log: Query<&mut Log>,
 ) {
     if let Ok(level) = level.single() {
         if let Ok((entity, map, areas)) = map.single() {
@@ -755,6 +756,10 @@ fn spawn_robots(
                     }
                     spawned_robots += 1;
                 }
+            }
+            if let Ok(mut log) = log.single_mut() {
+                let robot_or_robots = if total_robots == 1 { "robot" } else { "robots" };
+                log.push(format!("{} {} remaining.", total_robots, robot_or_robots));
             }
         }
     }
