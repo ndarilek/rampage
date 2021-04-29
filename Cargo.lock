@@ -916,6 +916,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf1de2fe8c75bc145a2f577add951f8134889b4795d47466a54a5c846d691693"
 
 [[package]]
+name = "blackout"
+version = "0.1.0"
+dependencies = [
+ "backtrace",
+ "bevy",
+ "bevy_input_actionmap",
+ "bevy_openal",
+ "bevy_tts",
+ "coord_2d",
+ "crossbeam-channel",
+ "derive_more",
+ "mapgen",
+ "maze_generator",
+ "pathfinding",
+ "rand 0.8.3",
+ "shadowcast",
+]
+
+[[package]]
 name = "block"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3052,21 +3071,12 @@ dependencies = [
 name = "rampage"
 version = "0.1.0"
 dependencies = [
- "anyhow",
- "backtrace",
  "bevy",
  "bevy_input_actionmap",
  "bevy_openal",
  "bevy_tts",
  "big-brain",
- "coord_2d",
- "crossbeam-channel",
- "derive_more",
- "mapgen",
- "maze_generator",
- "pathfinding",
- "rand 0.8.3",
- "shadowcast",
+ "blackout",
 ]
 
 [[package]]

@@ -17,33 +17,23 @@ use bevy_input_actionmap::{GamepadAxisDirection, InputMap};
 use bevy_openal::{efx, Buffer, Context, GlobalEffects, Listener, Sound, SoundState};
 use bevy_tts::Tts;
 use big_brain::prelude::*;
-use crossbeam_channel::{unbounded, Receiver, Sender};
-use derive_more::{Deref, DerefMut};
-use mapgen::{MapBuilder, TileType};
-use rand::prelude::*;
-
-#[macro_use]
-mod core;
-mod error;
-mod exploration;
-mod log;
-mod map;
-mod navigation;
-mod pathfinding;
-mod sound;
-mod visibility;
-
-use crate::{
+use blackout::{
     core::{Angle, Area, Coordinates, MovementDirection, Player, PointLike},
+    crossbeam_channel::{unbounded, Receiver, Sender},
+    derive_more::{Deref, DerefMut},
     error::error_handler,
     exploration::Mappable,
     log::Log,
     map::{Areas, Exit, Map, MapBundle, MapConfig},
+    mapgen,
+    mapgen::{MapBuilder, TileType},
+    navigation,
     navigation::{
         BlocksMotion, Collision, MaxSpeed, MonitorsCollisions, MotionBlocked, NavigationConfig,
         RotationSpeed, Speed, Velocity,
     },
     pathfinding::{find_path, Destination},
+    rand::prelude::*,
     sound::{Footstep, FootstepBundle, SoundIcon, SoundIconBundle},
     visibility::{BlocksVisibility, Viewshed, VisibilityBlocked},
 };
@@ -51,7 +41,7 @@ use crate::{
 #[bevy_main]
 fn main() {
     App::build()
-        .add_plugin(crate::error::ErrorPlugin)
+        .add_plugin(blackout::error::ErrorPlugin)
         .insert_resource(WindowDescriptor {
             title: "Rampage".into(),
             ..Default::default()
@@ -70,19 +60,19 @@ fn main() {
         .add_plugin(bevy_input_actionmap::ActionPlugin::<String>::default())
         .add_plugin(bevy_openal::OpenAlPlugin)
         .add_plugin(bevy_tts::TtsPlugin)
-        .add_plugin(core::CorePlugin)
-        .add_plugin(exploration::ExplorationPlugin)
-        .add_plugin(log::LogPlugin)
+        .add_plugin(blackout::core::CorePlugin)
+        .add_plugin(blackout::exploration::ExplorationPlugin)
+        .add_plugin(blackout::log::LogPlugin)
         .insert_resource(MapConfig {
             speak_area_descriptions: false,
             start_revealed: true,
             ..Default::default()
         })
-        .add_plugin(map::MapPlugin)
-        .add_plugin(navigation::NavigationPlugin::<AppState>::default())
-        .add_plugin(pathfinding::PathfindingPlugin)
-        .add_plugin(sound::SoundPlugin)
-        .add_plugin(visibility::VisibilityPlugin)
+        .add_plugin(blackout::map::MapPlugin)
+        .add_plugin(blackout::navigation::NavigationPlugin::<AppState>::default())
+        .add_plugin(blackout::pathfinding::PathfindingPlugin)
+        .add_plugin(blackout::sound::SoundPlugin)
+        .add_plugin(blackout::visibility::VisibilityPlugin)
         .add_event::<Reset>()
         .add_event::<RobotKilled>()
         .add_event::<WallCollision>()
@@ -486,7 +476,7 @@ fn setup_level(
         let room_dimension = 16;
         let tile_dimension = (map_dimension * (room_dimension * 2)) as usize;
         let map = MapBuilder::new(tile_dimension, tile_dimension)
-            .with(crate::map::GridBuilder::new(
+            .with(blackout::map::GridBuilder::new(
                 map_dimension,
                 map_dimension,
                 room_dimension,
