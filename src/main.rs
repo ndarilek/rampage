@@ -608,24 +608,28 @@ fn spawn_robots(
             let extra_robots = (**level - 1) * 10;
             let total_robots = base_robots + extra_robots;
             let mut robot_types = vec![RobotType::Dumbass; base_robots as usize];
-            if **level == 2 {
-                for _ in 0..5 {
-                    robot_types.push(RobotType::Dumbass);
+            match **level {
+                2 => {
+                    for _ in 0..5 {
+                        robot_types.push(RobotType::Dumbass);
+                    }
+                    for _ in 5..10 {
+                        robot_types.push(RobotType::Jackass);
+                    }
                 }
-                for _ in 5..10 {
-                    robot_types.push(RobotType::Jackass);
+                v if v > 2 => {
+                    for _ in 0..(extra_robots as f32 * 0.3) as u32 {
+                        robot_types.push(RobotType::Dumbass);
+                    }
+                    for _ in 0..(extra_robots as f32 * 0.5) as u32 {
+                        robot_types.push(RobotType::Jackass);
+                    }
+                    for _ in 0..(extra_robots as f32 * 0.2) as u32 {
+                        robot_types.push(RobotType::Badass);
+                    }
                 }
-            } else if **level > 2 {
-                for _ in 0..(extra_robots as f32 * 0.3) as u32 {
-                    robot_types.push(RobotType::Dumbass);
-                }
-                for _ in 0..(extra_robots as f32 * 0.5) as u32 {
-                    robot_types.push(RobotType::Jackass);
-                }
-                for _ in 0..(extra_robots as f32 * 0.2) as u32 {
-                    robot_types.push(RobotType::Badass);
-                }
-            }
+                _ => {}
+            };
             if let Some(start) = map.start() {
                 let mut rng = thread_rng();
                 robot_types.shuffle(&mut rng);
