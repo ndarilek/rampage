@@ -1328,7 +1328,8 @@ fn taunt_player(
                     let sound = Sound {
                         buffer,
                         state: SoundState::Playing,
-                        gain: 2.,
+                        gain: 1.5,
+                        reference_distance: 5.,
                         ..Default::default()
                     };
                     commands.entity(voice).insert(sound);
