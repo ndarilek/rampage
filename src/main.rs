@@ -196,7 +196,6 @@ struct Sfx {
     drone: HandleId,
     exit: HandleId,
     exit_correct: HandleId,
-    taunts: Vec<HandleId>,
     level_exit: HandleId,
     life_lost: HandleId,
     player_footstep: HandleId,
@@ -207,6 +206,8 @@ struct Sfx {
     robot_footstep: HandleId,
     robot_jackass: HandleId,
     robot_shoot: HandleId,
+    shockwave: HandleId,
+    taunts: Vec<HandleId>,
     wall_power_up: HandleId,
 }
 
@@ -228,16 +229,6 @@ impl Default for Sfx {
             drone: "sfx/drone.flac".into(),
             exit: "sfx/exit.flac".into(),
             exit_correct: "sfx/exit_correct.flac".into(),
-            taunts: vec![
-                "sfx/taunt1.flac".into(),
-                "sfx/taunt2.flac".into(),
-                "sfx/taunt3.flac".into(),
-                "sfx/taunt4.flac".into(),
-                "sfx/taunt5.flac".into(),
-                "sfx/taunt6.flac".into(),
-                "sfx/taunt7.flac".into(),
-                "sfx/taunt8.flac".into(),
-            ],
             level_exit: "sfx/level_exit.flac".into(),
             life_lost: "sfx/life_lost.flac".into(),
             player_footstep: "sfx/player_footstep.flac".into(),
@@ -248,6 +239,17 @@ impl Default for Sfx {
             robot_footstep: "sfx/robot_footstep.flac".into(),
             robot_jackass: "sfx/robot_jackass.flac".into(),
             robot_shoot: "sfx/robot_shoot.flac".into(),
+            shockwave: "sfx/shockwave.flac".into(),
+            taunts: vec![
+                "sfx/taunt1.flac".into(),
+                "sfx/taunt2.flac".into(),
+                "sfx/taunt3.flac".into(),
+                "sfx/taunt4.flac".into(),
+                "sfx/taunt5.flac".into(),
+                "sfx/taunt6.flac".into(),
+                "sfx/taunt7.flac".into(),
+                "sfx/taunt8.flac".into(),
+            ],
             wall_power_up: "sfx/wall_power_up.flac".into(),
         }
     }
@@ -821,7 +823,7 @@ fn robot_killed(
                         .insert(Sound {
                             buffer: buffers.get_handle(sfx.robot_explode),
                             state: SoundState::Playing,
-                            rolloff_factor: 0.1,
+                            reference_distance: 10.,
                             ..Default::default()
                         })
                         .insert(*transform)
@@ -847,6 +849,19 @@ fn robot_killed(
                                 Timer::from_seconds(distance / 2., false),
                                 name.clone(),
                             ));
+                            let sound = commands
+                                .spawn()
+                                .insert(Sound {
+                                    buffer: buffers.get_handle(sfx.shockwave),
+                                    state: SoundState::Playing,
+                                    looping: true,
+                                    reference_distance: 5.,
+                                    ..Default::default()
+                                })
+                                .insert(Transform::default())
+                                .insert(GlobalTransform::default())
+                                .id();
+                            commands.entity(candidate_entity).push_children(&[sound]);
                         }
                     }
                 }
@@ -858,12 +873,18 @@ fn robot_killed(
 
 fn shockwave(
     time: Res<Time>,
-    mut exploding: Query<(Entity, &Coordinates, &mut DeathTimer)>,
+    mut exploding: Query<(Entity, &Coordinates, &mut DeathTimer, &Children)>,
+    mut sounds: Query<&mut Sound>,
     level: Query<&Map>,
     mut robot_killed: EventWriter<RobotKilled>,
 ) {
-    for (entity, coordinates, mut timer) in exploding.iter_mut() {
+    for (entity, coordinates, mut timer, children) in exploding.iter_mut() {
         timer.0.tick(time.delta());
+        if let Some(sound_entity) = children.last() {
+            if let Ok(mut sound) = sounds.get_mut(*sound_entity) {
+                sound.pitch = 1. - timer.0.percent() / 2.;
+            }
+        }
         if timer.0.finished() {
             if let Ok(map) = level.single() {
                 let index = coordinates.to_index(map.width());
