@@ -374,7 +374,7 @@ fn speak_direction(
             let direction: CardinalDirection = yaw.into();
             if old_direction != direction {
                 let direction: String = direction.into();
-                tts.speak(direction, true)?;
+                tts.speak(direction, false)?;
             }
             cache.insert(entity, direction);
         } else {
