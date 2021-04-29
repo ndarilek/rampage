@@ -140,10 +140,8 @@ fn sound_icon(
             let translation = global_transform
                 .map(|v| v.translation)
                 .unwrap_or_else(|| transform.translation);
-            let (x, y) = (translation.x, translation.y);
-            let x = x as i32;
-            let y = y as i32;
-            if viewer.visible.contains(&(x, y)) {
+            let point = (translation.x, translation.y);
+            if viewer.is_visible(&point) {
                 let buffer = asset_server.get_handle(icon.sound);
                 if asset_server.get_load_state(&buffer) == LoadState::Loaded {
                     let looping = icon.interval.is_none();
@@ -233,7 +231,12 @@ impl Plugin for SoundPlugin {
                 CoreStage::PostUpdate,
                 footstep.system().after(TransformSystem::TransformPropagate),
             )
-            .add_system(sound_icon.system())
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                sound_icon
+                    .system()
+                    .after(TransformSystem::TransformPropagate),
+            )
             .add_stage_after(
                 CoreStage::PostUpdate,
                 SOUND_ICON_AND_EXPLORATION_STAGE,
