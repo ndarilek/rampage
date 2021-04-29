@@ -3072,9 +3072,6 @@ name = "rampage"
 version = "0.1.0"
 dependencies = [
  "bevy",
- "bevy_input_actionmap",
- "bevy_openal",
- "bevy_tts",
  "big-brain",
  "blackout",
 ]

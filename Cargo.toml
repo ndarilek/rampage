@@ -25,9 +25,6 @@ features = [
 ]
 
 [dependencies]
-bevy_input_actionmap = { path = "crates/bevy_input_actionmap" }
-bevy_openal = { path = "crates/bevy_openal" }
-bevy_tts = { path = "crates/bevy_tts" }
 big-brain = "0.5"
 blackout = { path = "crates/blackout" }
 

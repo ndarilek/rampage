@@ -1,3 +1,6 @@
+pub use bevy_input_actionmap;
+pub use bevy_openal;
+pub use bevy_tts;
 #[macro_use]
 pub mod core;
 pub use crossbeam_channel;

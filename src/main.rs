@@ -13,11 +13,11 @@ use bevy::{
     tasks::AsyncComputeTaskPool,
     utils::Instant,
 };
-use bevy_input_actionmap::{GamepadAxisDirection, InputMap};
-use bevy_openal::{efx, Buffer, Context, GlobalEffects, Listener, Sound, SoundState};
-use bevy_tts::Tts;
 use big_brain::prelude::*;
 use blackout::{
+    bevy_input_actionmap::{GamepadAxisDirection, InputMap},
+    bevy_openal::{efx, Buffer, Buffers, Context, GlobalEffects, Listener, Sound, SoundState},
+    bevy_tts::Tts,
     core::{Angle, Area, Coordinates, MovementDirection, Player, PointLike},
     crossbeam_channel::{unbounded, Receiver, Sender},
     derive_more::{Deref, DerefMut},
@@ -57,9 +57,9 @@ fn main() {
         })
         .add_plugins(DefaultPlugins)
         .add_plugin(BigBrainPlugin)
-        .add_plugin(bevy_input_actionmap::ActionPlugin::<String>::default())
-        .add_plugin(bevy_openal::OpenAlPlugin)
-        .add_plugin(bevy_tts::TtsPlugin)
+        .add_plugin(blackout::bevy_input_actionmap::ActionPlugin::<String>::default())
+        .add_plugin(blackout::bevy_openal::OpenAlPlugin)
+        .add_plugin(blackout::bevy_tts::TtsPlugin)
         .add_plugin(blackout::core::CorePlugin)
         .add_plugin(blackout::exploration::ExplorationPlugin)
         .add_plugin(blackout::log::LogPlugin)
@@ -439,7 +439,7 @@ fn load(
     mut state: ResMut<State<AppState>>,
     asset_server: Res<AssetServer>,
     handles: ResMut<AssetHandles>,
-    buffers: Res<bevy_openal::Buffers>,
+    buffers: Res<Buffers>,
 ) -> Result<(), Box<dyn Error>> {
     let buffers_created = buffers.0.keys().len();
     let sfx_loaded = asset_server.get_group_load_state(handles.sfx.iter().map(|handle| handle.id))
