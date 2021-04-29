@@ -56,11 +56,9 @@ fn main() {
             movement_control_states: vec![AppState::InGame],
         })
         .add_plugins(DefaultPlugins)
+        .add_plugins(blackout::core::CorePlugins)
         .add_plugin(BigBrainPlugin)
         .add_plugin(blackout::bevy_input_actionmap::ActionPlugin::<String>::default())
-        .add_plugin(blackout::bevy_openal::OpenAlPlugin)
-        .add_plugin(blackout::bevy_tts::TtsPlugin)
-        .add_plugin(blackout::core::CorePlugin)
         .add_plugin(blackout::exploration::ExplorationPlugin)
         .add_plugin(blackout::log::LogPlugin)
         .insert_resource(MapConfig {

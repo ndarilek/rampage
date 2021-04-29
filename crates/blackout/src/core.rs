@@ -420,3 +420,14 @@ impl Plugin for CorePlugin {
             );
     }
 }
+
+pub struct CorePlugins;
+
+impl PluginGroup for CorePlugins {
+    fn build(&mut self, group: &mut bevy::app::PluginGroupBuilder) {
+        group
+            .add(crate::bevy_tts::TtsPlugin)
+            .add(crate::bevy_openal::OpenAlPlugin)
+            .add(CorePlugin);
+    }
+}
