@@ -13,6 +13,7 @@ use blackout::{
 };
 
 use crate::{
+    bonus::AwardBonus,
     game::{AppState, Sfx},
     player::LifeLost,
     robot::{CauseOfDeath, Robot, RobotKilled},
@@ -50,6 +51,7 @@ fn bullet(
     robots: Query<(&Robot, Entity, &Coordinates)>,
     level: Query<(Entity, &Map)>,
     mut robot_killed: EventWriter<RobotKilled>,
+    mut bonus: EventWriter<AwardBonus>,
     player: Query<(&Player, Entity, &Coordinates)>,
     mut log: Query<&mut Log>,
     mut life_lost: EventWriter<LifeLost>,
@@ -107,6 +109,7 @@ fn bullet(
                         index,
                         CauseOfDeath::Bullet(*owner),
                     ));
+                    bonus.send(AwardBonus);
                 }
                 remove = true;
                 break;

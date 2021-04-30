@@ -8,10 +8,9 @@ use blackout::{
     map::Map,
 };
 
-use crate::{
-    game::{Reset, Sfx},
-    robot::RobotKilled,
-};
+use crate::game::{Reset, Sfx};
+
+pub struct AwardBonus;
 
 #[derive(Clone, Debug, Default, Deref, DerefMut)]
 struct BonusTimes(Vec<Instant>);
@@ -22,7 +21,7 @@ fn setup(mut commands: Commands) {
 
 fn bonus(
     mut commands: Commands,
-    mut events: EventReader<RobotKilled>,
+    mut events: EventReader<AwardBonus>,
     mut bonus_times: Query<&mut BonusTimes>,
     buffers: Res<Assets<Buffer>>,
     sfx: Res<Sfx>,
@@ -90,7 +89,8 @@ pub struct BonusPlugin;
 
 impl Plugin for BonusPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_startup_system(setup.system())
+        app.add_event::<AwardBonus>()
+            .add_startup_system(setup.system())
             .add_system(bonus.system())
             .add_system(bonus_clear.system());
     }

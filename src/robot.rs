@@ -15,6 +15,7 @@ use blackout::{
 };
 
 use crate::{
+    bonus::AwardBonus,
     bullet::{Bullet, BulletBundle, ShotRange, ShotSpeed, ShotTimer},
     game::{AppState, Sfx},
     level::WallCollision,
@@ -515,6 +516,7 @@ fn shockwave(
     mut sounds: Query<&mut Sound>,
     level: Query<&Map>,
     mut robot_killed: EventWriter<RobotKilled>,
+    mut bonus: EventWriter<AwardBonus>,
 ) {
     for (entity, coordinates, mut timer, children) in exploding.iter_mut() {
         timer.0.tick(time.delta());
@@ -532,6 +534,7 @@ fn shockwave(
                     index,
                     CauseOfDeath::Shockwave(timer.1.clone()),
                 ));
+                bonus.send(AwardBonus);
             }
         }
     }
