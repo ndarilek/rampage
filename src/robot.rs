@@ -90,7 +90,13 @@ impl ActionBuilder for PursuePlayerBuilder {
     }
 }
 
-pub struct RobotKilled(pub Entity, pub Coordinates, pub usize, pub CauseOfDeath);
+pub struct RobotKilled(
+    pub Entity,
+    pub RobotType,
+    pub Coordinates,
+    pub usize,
+    pub CauseOfDeath,
+);
 
 #[derive(Clone, Copy, Debug)]
 pub enum RobotType {
@@ -472,7 +478,7 @@ fn investigate_coordinates(
             }
         }
     }
-    for RobotKilled(_, old_robot_coords, _, _) in robot_kills.iter() {
+    for RobotKilled(_, _, old_robot_coords, _, _) in robot_kills.iter() {
         for (entity, _, robot_coords) in actors.iter() {
             if robot_coords.distance(old_robot_coords) <= 20. {
                 commands
@@ -569,7 +575,7 @@ fn robot_killed(
     non_exploding_robots: Query<(Entity, &Robot, &Coordinates), Without<DeathTimer>>,
     mut killed: Local<HashSet<Entity>>,
 ) {
-    for RobotKilled(entity, _, index, cause) in events.iter() {
+    for RobotKilled(entity, _, _, index, cause) in events.iter() {
         if !killed.contains(&entity) {
             if let Ok(mut log) = log.single_mut() {
                 if let Ok(name) = names.get(*entity) {
@@ -654,13 +660,13 @@ fn robot_killed(
 
 fn shockwave(
     time: Res<Time>,
-    mut exploding: Query<(Entity, &Coordinates, &mut DeathTimer, &Children)>,
+    mut exploding: Query<(Entity, &Robot, &Coordinates, &mut DeathTimer, &Children)>,
     mut sounds: Query<&mut Sound>,
     level: Query<&Map>,
     mut robot_killed: EventWriter<RobotKilled>,
     mut bonus: EventWriter<AwardBonus>,
 ) {
-    for (entity, coordinates, mut timer, children) in exploding.iter_mut() {
+    for (entity, Robot(robot_type), coordinates, mut timer, children) in exploding.iter_mut() {
         timer.0.tick(time.delta());
         if let Some(sound_entity) = children.last() {
             if let Ok(mut sound) = sounds.get_mut(*sound_entity) {
@@ -672,6 +678,7 @@ fn shockwave(
                 let index = coordinates.to_index(map.width());
                 robot_killed.send(RobotKilled(
                     entity,
+                    *robot_type,
                     *coordinates,
                     index,
                     CauseOfDeath::Shockwave(timer.1.clone()),

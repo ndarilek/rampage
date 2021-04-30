@@ -47,7 +47,6 @@ fn bullet(
     sfx: Res<Sfx>,
     mut bullets: Query<(&Bullet, Entity, &Coordinates, &ShotRange, &mut Sound)>,
     mut active_bullets: Local<HashMap<Entity, ((f32, f32), f32)>>,
-    state: Res<State<AppState>>,
     robots: Query<(&Robot, Entity, &Coordinates)>,
     level: Query<(Entity, &Map)>,
     mut robot_killed: EventWriter<RobotKilled>,
@@ -60,10 +59,7 @@ fn bullet(
         if !active_bullets.contains_key(&entity) {
             active_bullets.insert(entity, ((coordinates.x(), coordinates.y()), 0.));
         }
-        if *state.current() == AppState::BetweenLives {
-            println!("Should pause");
-            sound.pause();
-        } else if sound.state != SoundState::Playing {
+        if sound.state != SoundState::Playing {
             sound.play();
         }
         let mut remove = false;
@@ -99,12 +95,13 @@ fn bullet(
             *prev_coords = (coordinates.x(), coordinates.y());
         }
         let Bullet(owner) = bullet;
-        for (_, entity, robot_coordinates) in robots.iter() {
+        for (Robot(robot_type), entity, robot_coordinates) in robots.iter() {
             if *owner != entity && coordinates.distance(robot_coordinates) <= 1. {
                 if let Ok((_, map)) = level.single() {
                     let index = robot_coordinates.to_index(map.width());
                     robot_killed.send(RobotKilled(
                         entity,
+                        *robot_type,
                         *robot_coordinates,
                         index,
                         CauseOfDeath::Bullet(*owner),
