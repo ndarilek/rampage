@@ -87,7 +87,7 @@ impl Default for PlayerBundle {
             player: Default::default(),
             listener: Default::default(),
             coordinates: Default::default(),
-            rotation_speed: RotationSpeed(Angle::Degrees(90.)),
+            rotation_speed: RotationSpeed(Angle::Degrees(120.)),
             transform: Default::default(),
             global_transform: Default::default(),
             speed: Default::default(),
