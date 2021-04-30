@@ -49,6 +49,9 @@ impl Default for Lives {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Shoot;
+
 #[derive(Bundle)]
 struct PlayerBundle {
     player: Player,
@@ -212,6 +215,7 @@ fn shoot(
         &ShotRange,
         &ShotSpeed,
     )>,
+    mut shoot: EventWriter<Shoot>,
     level: Query<(Entity, &Map)>,
     sfx: Res<Sfx>,
     buffers: Res<Assets<Buffer>>,
@@ -221,6 +225,7 @@ fn shoot(
     {
         timer.tick(time.delta());
         if input.active(SHOOT) && timer.finished() {
+            shoot.send(Shoot);
             if let Ok((level_entity, _)) = level.single() {
                 let shot_sound = commands
                     .spawn()
@@ -375,6 +380,7 @@ impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.init_resource::<BetweenLivesTimer>()
             .add_event::<LifeLost>()
+            .add_event::<Shoot>()
             .add_system_set(
                 SystemSet::on_exit(AppState::Loading).with_system(spawn_player.system()),
             )
