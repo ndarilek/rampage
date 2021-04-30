@@ -325,6 +325,7 @@ fn comment_on_investigation(
     time: Res<Time>,
     robots: Query<(&Robot, &Children)>,
     mut timers: Query<&mut Timer>,
+    mut sounds: Query<&mut Sound>,
     buffers: Res<Assets<Buffer>>,
     sfx: Res<Sfx>,
 ) {
@@ -333,6 +334,9 @@ fn comment_on_investigation(
             let voice = children[0];
             if let Ok(mut timer) = timers.get_mut(voice) {
                 if timer.percent() == 0. {
+                    if let Ok(mut sound) = sounds.get_mut(voice) {
+                        sound.stop();
+                    }
                     let mut comments = sfx.investigate.clone();
                     comments.shuffle(&mut thread_rng());
                     let buffer = buffers.get_handle(comments[0]);
@@ -368,6 +372,9 @@ fn taunt_player(
             let voice = children[0];
             if let Ok(mut timer) = timers.get_mut(voice) {
                 if timer.percent() == 0. {
+                    if let Ok(mut sound) = sounds.get_mut(voice) {
+                        sound.stop();
+                    }
                     let mut comments = sfx.taunts.clone();
                     comments.shuffle(&mut thread_rng());
                     let buffer = buffers.get_handle(comments[0]);
