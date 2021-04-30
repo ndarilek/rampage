@@ -3,7 +3,12 @@
 
 use bevy::prelude::*;
 
+mod bonus;
+mod bullet;
 mod game;
+mod level;
+mod player;
+mod robot;
 
 fn main() {
     App::build().add_plugin(game::GamePlugin).run();
