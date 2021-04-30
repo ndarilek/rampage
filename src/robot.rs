@@ -271,13 +271,16 @@ fn pursue_player(
     mut log: Query<&mut Log>,
     names: Query<&Name>,
     robot: Query<&MaxSpeed>,
+    children: Query<&Children>,
+    mut timers: Query<&mut Timer>,
 ) {
     for (Actor(actor), mut state) in query.iter_mut() {
         match *state {
             ActionState::Requested => {
-                if let Ok(mut log) = log.single_mut() {
-                    if let Ok(name) = names.get(*actor) {
-                        log.push(format!("{} is chasing you!", **name));
+                if let Ok(children) = children.get(*actor) {
+                    let voice_entity = children[0];
+                    if let Ok(mut timer) = timers.get_mut(voice_entity) {
+                        timer.reset();
                     }
                 }
                 *state = ActionState::Executing;
@@ -318,8 +321,7 @@ fn taunt_player(
         if let Ok((_, children)) = robots.get(*actor) {
             let voice = children[0];
             if let Ok(mut timer) = timers.get_mut(voice) {
-                timer.tick(time.delta());
-                if timer.finished() {
+                if timer.percent() == 0. {
                     let mut taunts = sfx.taunts.clone();
                     taunts.shuffle(&mut thread_rng());
                     let buffer = buffers.get_handle(taunts[0]);
@@ -333,6 +335,7 @@ fn taunt_player(
                     commands.entity(voice).insert(sound);
                     timer.reset();
                 }
+                timer.tick(time.delta());
             }
         }
     }
