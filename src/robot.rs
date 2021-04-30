@@ -364,6 +364,7 @@ fn taunt_player(
     time: Res<Time>,
     robots: Query<(&Robot, &Children)>,
     mut timers: Query<&mut Timer>,
+    mut sounds: Query<&mut Sound>,
     buffers: Res<Assets<Buffer>>,
     sfx: Res<Sfx>,
 ) {

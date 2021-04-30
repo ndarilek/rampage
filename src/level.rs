@@ -21,7 +21,7 @@ use blackout::{
 
 use crate::{
     game::{AppState, Reset, Sfx, CONTINUE},
-    player::{LifeLost, Lives},
+    player::{LifeLost, Lives, Score},
     robot::{Robot, RobotCommands, RobotType},
 };
 
@@ -531,16 +531,29 @@ fn level_up(
     Ok(())
 }
 
-fn level_up_enter(level: Query<&Level>, mut lives: Query<&mut Lives>, mut log: Query<&mut Log>) {
+fn level_up_enter(
+    level: Query<&Level>,
+    mut lives: Query<&mut Lives>,
+    mut log: Query<&mut Log>,
+    robots: Query<&Robot>,
+    score: Query<&Score>,
+) {
     for level in level.iter() {
         if let Ok(mut lives) = lives.single_mut() {
             **lives += 1;
         }
         if let Ok(mut log) = log.single_mut() {
-            log.push(format!(
-                "Congratulations! You've earned an extra life! Press Enter to continue to level {}.",
-                **level + 1
+            if let Ok(score) = score.single() {
+                let robot_count = robots.iter().len();
+                let robot_or_robots = if robot_count == 1 { "robot" } else { "robots" };
+                log.push(format!(
+                "Congratulations! Your score is {}, and you left {} {} behind. You've earned an extra life! Press Enter to continue to level {}.",
+                **score,
+                robot_count,
+                robot_or_robots,
+                **level + 1,
             ));
+            }
         }
     }
 }
