@@ -13,7 +13,7 @@ use crate::game::{Reset, Sfx};
 pub struct AwardBonus;
 
 #[derive(Clone, Debug, Default, Deref, DerefMut)]
-struct BonusTimes(Vec<Instant>);
+pub struct BonusTimes(pub Vec<Instant>);
 
 fn setup(mut commands: Commands) {
     commands.spawn().insert(BonusTimes::default());

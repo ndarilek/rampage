@@ -17,13 +17,14 @@ use blackout::{
 };
 
 use crate::{
+    bonus::BonusTimes,
     bullet::{Bullet, BulletBundle, ShotRange, ShotSpeed, ShotTimer},
     game::{
         AppState, Reset, Sfx, SHOOT, SNAP_LEFT, SNAP_RIGHT, SPEAK_COORDINATES, SPEAK_DIRECTION,
-        SPEAK_HEALTH, SPEAK_LEVEL, SPEAK_ROBOT_COUNT,
+        SPEAK_HEALTH, SPEAK_LEVEL, SPEAK_ROBOT_COUNT, SPEAK_SCORE,
     },
     level::Level,
-    robot::Robot,
+    robot::{Robot, RobotKilled, RobotType},
 };
 
 #[derive(Clone, Debug, Deref, DerefMut)]
@@ -48,6 +49,9 @@ impl Default for Lives {
         Lives(3)
     }
 }
+
+#[derive(Clone, Copy, Debug, Default, Deref, DerefMut)]
+pub struct Score(pub u32);
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Shoot;
@@ -74,6 +78,7 @@ struct PlayerBundle {
     shot_range: ShotRange,
     shot_speed: ShotSpeed,
     level: Level,
+    score: Score,
 }
 
 impl Default for PlayerBundle {
@@ -98,10 +103,11 @@ impl Default for PlayerBundle {
             blocks_motion: Default::default(),
             lives: Default::default(),
             checkpoint: Default::default(),
-            level: Default::default(),
             shot_timer: ShotTimer(Timer::from_seconds(0.1, false)),
             shot_range: ShotRange(24),
             shot_speed: ShotSpeed(36),
+            level: Default::default(),
+            score: Default::default(),
         }
     }
 }
@@ -124,11 +130,11 @@ fn spawn_player(mut commands: Commands, sfx: Res<Sfx>) {
 fn speak_info(
     input: Res<InputMap<String>>,
     mut tts: ResMut<Tts>,
-    player: Query<(&Player, &Coordinates, &Transform, &Lives, &Level)>,
+    player: Query<(&Player, &Coordinates, &Transform, &Lives, &Level, &Score)>,
     robots: Query<&Robot>,
 ) -> Result<(), Box<dyn Error>> {
     if input.just_active(SPEAK_COORDINATES) {
-        if let Ok((_, coordinates, _, _, _)) = player.single() {
+        if let Ok((_, coordinates, _, _, _, _)) = player.single() {
             tts.speak(
                 format!("({}, {})", coordinates.x_i32(), coordinates.y_i32()),
                 true,
@@ -136,7 +142,7 @@ fn speak_info(
         }
     }
     if input.just_active(SPEAK_DIRECTION) {
-        if let Ok((_, _, transform, _, _)) = player.single() {
+        if let Ok((_, _, transform, _, _, _)) = player.single() {
             let forward = transform.local_x();
             let yaw = Angle::Radians(forward.y.atan2(forward.x));
             let direction: MovementDirection = yaw.into();
@@ -144,14 +150,20 @@ fn speak_info(
         }
     }
     if input.just_active(SPEAK_HEALTH) {
-        if let Ok((_, _, _, lives, _)) = player.single() {
+        if let Ok((_, _, _, lives, _, _)) = player.single() {
             let life_or_lives = if **lives != 1 { "lives" } else { "life" };
             tts.speak(format!("{} {} left.", **lives, life_or_lives), true)?;
         }
     }
     if input.just_active(SPEAK_LEVEL) {
-        if let Ok((_, _, _, _, level)) = player.single() {
+        if let Ok((_, _, _, _, level, _)) = player.single() {
             tts.speak(format!("Level {}", **level), true)?;
+        }
+    }
+    if input.just_active(SPEAK_SCORE) {
+        if let Ok((_, _, _, _, _, score)) = player.single() {
+            let point_or_points = if **score == 1 { "point" } else { "points" };
+            tts.speak(format!("{} {}.", **score, point_or_points), true)?;
         }
     }
     if input.just_active(SPEAK_ROBOT_COUNT) {
@@ -374,6 +386,38 @@ fn tick_between_lives_timer(
     Ok(())
 }
 
+fn score(
+    mut score: Query<&mut Score>,
+    mut shot: EventReader<Shoot>,
+    mut shots_fired: Local<u8>,
+    mut robot_kills: EventReader<RobotKilled>,
+    active_bonuses: Query<&BonusTimes>,
+) {
+    const SHOTS_PER_POINT: u8 = 5;
+    if let Ok(mut score) = score.single_mut() {
+        for _ in shot.iter() {
+            *shots_fired += 1;
+            if **score > 0 && *shots_fired > SHOTS_PER_POINT {
+                **score -= 1;
+                *shots_fired = 0;
+            }
+        }
+        for RobotKilled(_, robot_type, _, _, _) in robot_kills.iter() {
+            let mut points: f32 = match robot_type {
+                RobotType::Dumbass => 10.,
+                RobotType::Jackass => 50.,
+                RobotType::Badass => 100.,
+            };
+            if let Ok(active_bonuses) = active_bonuses.single() {
+                for _ in &active_bonuses[1..] {
+                    points *= 1.2;
+                }
+            }
+            **score += points as u32;
+        }
+    }
+}
+
 pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
@@ -406,6 +450,7 @@ impl Plugin for PlayerPlugin {
                         .system()
                         .chain(error_handler.system()),
                 ),
-            );
+            )
+            .add_system(score.system());
     }
 }

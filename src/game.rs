@@ -4,7 +4,6 @@ use bevy::{
     asset::{HandleId, LoadState},
     prelude::*,
 };
-
 use blackout::{
     bevy_input_actionmap::{GamepadAxisDirection, InputMap},
     bevy_openal::{efx, Buffers, Context, GlobalEffects},
@@ -15,6 +14,8 @@ use blackout::{
     navigation,
     navigation::NavigationConfig,
 };
+
+use crate::player::Score;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum AppState {
@@ -111,6 +112,7 @@ pub const SPEAK_DIRECTION: &str = "SPEAK_DIRECTION";
 pub const SPEAK_HEALTH: &str = "SPEAK_HEALTH";
 pub const SPEAK_LEVEL: &str = "SPEAK_LEVEL";
 pub const SPEAK_ROBOT_COUNT: &str = "SPEAK_ROBOT_COUNT";
+pub const SPEAK_SCORE: &str = "SPEAK_SCORE";
 pub const SNAP_LEFT: &str = "SNAP_LEFT";
 pub const SNAP_RIGHT: &str = "SNAP_RIGHT";
 pub const SHOOT: &str = "SHOOT";
@@ -195,6 +197,7 @@ fn setup(
         .bind(SPEAK_HEALTH, KeyCode::H)
         .bind(SPEAK_LEVEL, KeyCode::L)
         .bind(SPEAK_ROBOT_COUNT, KeyCode::R)
+        .bind(SPEAK_SCORE, KeyCode::S)
         .bind(SNAP_LEFT, vec![KeyCode::LControl, KeyCode::Left])
         .bind(SNAP_LEFT, vec![KeyCode::RControl, KeyCode::Left])
         .bind(SNAP_LEFT, GamepadButtonType::LeftTrigger)
@@ -235,12 +238,22 @@ fn send_new_game_event(mut events: EventWriter<Reset>) {
     events.send(Reset::NewGame);
 }
 
-fn game_over_enter(mut commands: Commands, map: Query<(Entity, &Map)>, mut log: Query<&mut Log>) {
+fn game_over_enter(
+    mut commands: Commands,
+    map: Query<(Entity, &Map)>,
+    score: Query<&Score>,
+    mut log: Query<&mut Log>,
+) {
     for (entity, _) in map.iter() {
         commands.entity(entity).despawn_recursive();
     }
-    if let Ok(mut log) = log.single_mut() {
-        log.push("Game over. Press Enter to play again.");
+    if let Ok(score) = score.single() {
+        if let Ok(mut log) = log.single_mut() {
+            log.push(format!(
+                "Game over. Your final score is {}. Press Enter to play again.",
+                **score
+            ));
+        }
     }
 }
 
