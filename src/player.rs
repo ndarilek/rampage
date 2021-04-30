@@ -409,8 +409,10 @@ fn score(
                 RobotType::Badass => 100.,
             };
             if let Ok(active_bonuses) = active_bonuses.single() {
-                for _ in &active_bonuses[1..] {
-                    points *= 1.2;
+                if !active_bonuses.is_empty() {
+                    for _ in &active_bonuses[1..] {
+                        points *= 1.2;
+                    }
                 }
             }
             **score += points as u32;
