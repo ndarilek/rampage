@@ -27,6 +27,7 @@ bevy_tts = { path = "../bevy_tts" }
 coord_2d = "0.3"
 crossbeam-channel = "0.5"
 derive_more = "0.99"
+gilrs = "0.8"
 mapgen = "0.4"
 maze_generator = "1"
 pathfinding = "2"

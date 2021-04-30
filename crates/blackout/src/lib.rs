@@ -10,6 +10,7 @@ pub use crossbeam_channel;
 pub use derive_more;
 pub mod error;
 pub mod exploration;
+pub use gilrs;
 pub mod log;
 pub mod map;
 pub use mapgen;
