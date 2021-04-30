@@ -36,7 +36,6 @@ dependencies = ["build", "release-config", "release-pre", "release-post", "relea
 script_runner = "@duckscript"
 script = '''
 mkdir ${dist_dir}
-cp .env ${dist_dir}
 cp assets ${dist_dir}
 cp alsoft.ini ${dist_dir}/alsoft.ini
 set_env dist_dir ${dist_dir}

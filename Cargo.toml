@@ -27,8 +27,6 @@ features = [
 [dependencies]
 big-brain = "0.5"
 blackout = { path = "crates/blackout" }
-dotenv = "0.15"
-sentry = "0.22"
 
 [profile.dev.package."*"]
 opt-level = 3
