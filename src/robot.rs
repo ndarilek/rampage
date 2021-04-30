@@ -1,6 +1,9 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    f32::consts::PI,
+};
 
-use bevy::prelude::*;
+use bevy::{ecs::system::EntityCommands, prelude::*};
 use big_brain::prelude::*;
 use blackout::{
     bevy_openal::{Buffer, Sound, SoundState},
@@ -11,6 +14,7 @@ use blackout::{
     navigation::{BlocksMotion, MaxSpeed, MotionBlocked, Speed, Velocity},
     pathfinding::Destination,
     rand::prelude::*,
+    sound::{Footstep, FootstepBundle, SoundIcon, SoundIconBundle},
     visibility::{BlocksVisibility, Viewshed, VisibilityBlocked},
 };
 
@@ -136,6 +140,110 @@ pub struct RobotBundle {
     pub shot_range: ShotRange,
     pub shot_speed: ShotSpeed,
     pub shot_accuracy: ShotAccuracy,
+}
+
+pub trait RobotCommands<'a, 'b> {
+    fn insert_robot(&mut self, robot_type: &RobotType) -> &mut EntityCommands<'a, 'b>;
+}
+
+impl<'a, 'b> RobotCommands<'a, 'b> for EntityCommands<'a, 'b> {
+    fn insert_robot(&mut self, robot_type: &RobotType) -> &mut Self {
+        let max_speed;
+        let visibility_range;
+        let shot_accuracy;
+        match robot_type {
+            RobotType::Dumbass => {
+                max_speed = MaxSpeed(2.);
+                visibility_range = 12;
+                shot_accuracy = ShotAccuracy(PI / 9.);
+            }
+            RobotType::Jackass => {
+                max_speed = MaxSpeed(4.);
+                visibility_range = 16;
+                shot_accuracy = ShotAccuracy(PI / 10.);
+            }
+            RobotType::Badass => {
+                max_speed = MaxSpeed(4.);
+                visibility_range = 24;
+                shot_accuracy = ShotAccuracy(PI / 12.);
+            }
+        };
+        self.insert_bundle(RobotBundle {
+            robot: Robot(*robot_type),
+            transform: Default::default(),
+            global_transform: Default::default(),
+            speed: Default::default(),
+            max_speed,
+            velocity: Default::default(),
+            viewshed: Viewshed {
+                range: visibility_range,
+                ..Default::default()
+            },
+            blocks_visibility: Default::default(),
+            blocks_motion: Default::default(),
+            shot_timer: ShotTimer(Timer::from_seconds(3., false)),
+            shot_range: ShotRange(16),
+            shot_speed: ShotSpeed(8),
+            shot_accuracy,
+            coordinates: Default::default(),
+            name: Default::default(),
+        })
+        .insert(
+            Thinker::build()
+                .picker(FirstToScore { threshold: 0.8 })
+                .when(SeesPlayer::build(), PursuePlayer::build())
+                .when(Curious::build(), Investigate::build()),
+        )
+        .with_children(|parent| {
+            parent
+                .spawn()
+                .insert(Transform::default())
+                .insert(GlobalTransform::default())
+                .insert(Timer::from_seconds(10., false));
+        })
+    }
+}
+
+fn post_process_robots(
+    mut commands: Commands,
+    sfx: Res<Sfx>,
+    robots: Query<(&Robot, Entity), Added<Robot>>,
+) {
+    for (Robot(robot_type), entity) in robots.iter() {
+        let footstep = commands
+            .spawn()
+            .insert_bundle(FootstepBundle {
+                footstep: Footstep {
+                    sound: sfx.robot_footstep,
+                    step_length: 2.,
+                    gain: 1.5,
+                    reference_distance: 10.,
+                    rolloff_factor: 1.5,
+                    pitch_variation: None,
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+            .id();
+        let sound_icon = commands
+            .spawn()
+            .insert_bundle(SoundIconBundle {
+                sound_icon: SoundIcon {
+                    sound: match robot_type {
+                        RobotType::Dumbass => sfx.robot_dumbass,
+                        RobotType::Jackass => sfx.robot_jackass,
+                        RobotType::Badass => sfx.robot_badass,
+                    },
+                    gain: 0.8,
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+            .id();
+        commands
+            .entity(entity)
+            .push_children(&[footstep, sound_icon]);
+    }
 }
 
 fn sees_player_scorer(
@@ -546,6 +654,7 @@ impl Plugin for RobotPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_event::<RobotKilled>()
             .add_plugin(BigBrainPlugin)
+            .add_system(post_process_robots.system())
             .add_system(sees_player_scorer.system())
             .add_system_to_stage(CoreStage::PreUpdate, pursue_player.system())
             .add_system(taunt_player.system())

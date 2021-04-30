@@ -1,7 +1,6 @@
-use std::{error::Error, f32::consts::PI, time::Duration};
+use std::{error::Error, f32::consts::PI};
 
 use bevy::{prelude::*, tasks::AsyncComputeTaskPool};
-use big_brain::prelude::*;
 use blackout::{
     bevy_input_actionmap::InputMap,
     bevy_openal::{Buffer, Sound, SoundState},
@@ -13,20 +12,17 @@ use blackout::{
     map::{Areas, Exit, GridBuilder, Map, MapBundle},
     mapgen,
     mapgen::{MapBuilder, TileType},
-    navigation::{Collision, MaxSpeed, MonitorsCollisions, MotionBlocked},
+    navigation::{Collision, MonitorsCollisions, MotionBlocked},
     pathfinding::find_path,
     rand::prelude::*,
-    sound::{Footstep, FootstepBundle, SoundIcon, SoundIconBundle},
+    sound::SoundIcon,
     visibility::{Viewshed, VisibilityBlocked},
 };
 
 use crate::{
-    bullet::{ShotRange, ShotSpeed, ShotTimer},
     game::{AppState, Reset, Sfx, CONTINUE},
     player::{LifeLost, Lives},
-    robot::{
-        Curious, Investigate, PursuePlayer, Robot, RobotBundle, RobotType, SeesPlayer, ShotAccuracy,
-    },
+    robot::{Robot, RobotCommands, RobotType},
 };
 
 #[derive(Clone, Copy, Debug, Default, Deref, DerefMut)]
@@ -137,7 +133,6 @@ fn spawn_ambience(
 
 fn spawn_robots(
     mut commands: Commands,
-    sfx: Res<Sfx>,
     level: Query<&Level>,
     map: Query<(Entity, &Map, &Areas), Added<Areas>>,
     mut log: Query<&mut Log>,
@@ -206,93 +201,26 @@ fn spawn_robots(
                     all_robot_coords.push(robot_coords);
                     if let Some(robot_type) = robot_types.pop() {
                         let name;
-                        let max_speed;
-                        let visibility_range;
-                        let shot_accuracy;
-                        let sound;
                         match robot_type {
                             RobotType::Dumbass => {
                                 dumbass_count += 1;
                                 name = Name::new(format!("Dumbass {}", dumbass_count));
-                                max_speed = MaxSpeed(2.);
-                                visibility_range = 12;
-                                shot_accuracy = ShotAccuracy(PI / 9.);
-                                sound = sfx.robot_dumbass;
                             }
                             RobotType::Jackass => {
                                 jackass_count += 1;
                                 name = Name::new(format!("Jackass {}", jackass_count));
-                                max_speed = MaxSpeed(4.);
-                                visibility_range = 16;
-                                shot_accuracy = ShotAccuracy(PI / 10.);
-                                sound = sfx.robot_jackass;
                             }
                             RobotType::Badass => {
                                 badass_count += 1;
                                 name = Name::new(format!("Badass {}", badass_count));
-                                max_speed = MaxSpeed(4.);
-                                visibility_range = 24;
-                                shot_accuracy = ShotAccuracy(PI / 12.);
-                                sound = sfx.robot_badass;
                             }
                         };
+                        let coordinates: Coordinates = robot_coords.into();
                         let entity_id = commands
                             .spawn()
-                            .insert_bundle(RobotBundle {
-                                robot: Robot(RobotType::Jackass),
-                                coordinates: robot_coords.into(),
-                                transform: Default::default(),
-                                global_transform: Default::default(),
-                                speed: Default::default(),
-                                max_speed,
-                                velocity: Default::default(),
-                                name,
-                                viewshed: Viewshed {
-                                    range: visibility_range,
-                                    ..Default::default()
-                                },
-                                blocks_visibility: Default::default(),
-                                blocks_motion: Default::default(),
-                                shot_timer: ShotTimer(Timer::from_seconds(3., false)),
-                                shot_range: ShotRange(16),
-                                shot_speed: ShotSpeed(8),
-                                shot_accuracy,
-                            })
-                            .insert(
-                                Thinker::build()
-                                    .picker(FirstToScore { threshold: 0.8 })
-                                    .when(SeesPlayer::build(), PursuePlayer::build())
-                                    .when(Curious::build(), Investigate::build()),
-                            )
-                            .with_children(|parent| {
-                                let mut timer = Timer::from_seconds(10., false);
-                                timer.set_elapsed(Duration::from_secs(10));
-                                parent
-                                    .spawn()
-                                    .insert(Transform::default())
-                                    .insert(GlobalTransform::default())
-                                    .insert(timer);
-                                parent.spawn().insert_bundle(FootstepBundle {
-                                    footstep: Footstep {
-                                        sound: sfx.robot_footstep,
-                                        step_length: 2.,
-                                        gain: 1.5,
-                                        reference_distance: 10.,
-                                        rolloff_factor: 1.5,
-                                        pitch_variation: None,
-                                        ..Default::default()
-                                    },
-                                    ..Default::default()
-                                });
-                                parent.spawn().insert_bundle(SoundIconBundle {
-                                    sound_icon: SoundIcon {
-                                        sound,
-                                        gain: 0.8,
-                                        ..Default::default()
-                                    },
-                                    ..Default::default()
-                                });
-                            })
+                            .insert_robot(&robot_type)
+                            .insert(name)
+                            .insert(coordinates)
                             .id();
                         commands.entity(entity).push_children(&[entity_id]);
                     }
