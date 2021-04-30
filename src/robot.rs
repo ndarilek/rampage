@@ -316,6 +316,9 @@ fn pursue_player(
     }
 }
 
+const VOICE_GAIN: f32 = 1.2;
+const VOICE_REFERENCE_DISTANCE: f32 = 4.;
+
 fn comment_on_investigation(
     mut commands: Commands,
     query: Query<&Actor, With<Investigate>>,
@@ -336,7 +339,8 @@ fn comment_on_investigation(
                     let sound = Sound {
                         buffer,
                         state: SoundState::Playing,
-                        reference_distance: 3.,
+                        gain: VOICE_GAIN,
+                        reference_distance: VOICE_REFERENCE_DISTANCE,
                         ..Default::default()
                     };
                     commands.entity(voice).insert(sound);
@@ -370,7 +374,8 @@ fn taunt_player(
                     let sound = Sound {
                         buffer,
                         state: SoundState::Playing,
-                        reference_distance: 3.,
+                        gain: VOICE_GAIN,
+                        reference_distance: VOICE_REFERENCE_DISTANCE,
                         ..Default::default()
                     };
                     commands.entity(voice).insert(sound);
