@@ -113,7 +113,7 @@ fn spawn_ambience(
                     buffer: buffers.get_handle(*handle),
                     state: SoundState::Playing,
                     looping: true,
-                    gain: 0.3,
+                    gain: 0.4,
                     ..Default::default()
                 };
                 let x = (rng.gen_range(area.rect.x1..area.rect.x2)) as f32;

@@ -222,8 +222,8 @@ fn post_process_robots(
                 footstep: Footstep {
                     sound: sfx.robot_footstep,
                     step_length: 2.,
-                    gain: 1.5,
-                    reference_distance: 10.,
+                    gain: 1.2,
+                    reference_distance: 5.,
                     rolloff_factor: 1.5,
                     pitch_variation: None,
                     ..Default::default()
@@ -283,6 +283,7 @@ fn pursue_player(
     for (Actor(actor), mut state) in query.iter_mut() {
         match *state {
             ActionState::Requested => {
+                println!("{:?} pursues player", actor);
                 if let Ok(children) = children.get(*actor) {
                     let voice_entity = children[0];
                     if let Ok(mut timer) = timers.get_mut(voice_entity) {
@@ -302,6 +303,7 @@ fn pursue_player(
                 }
             }
             ActionState::Cancelled => {
+                println!("{:?} cancels pursuit", actor);
                 if let Ok(mut log) = log.single_mut() {
                     if let Ok(name) = names.get(*actor) {
                         log.push(format!("{} evaded!", **name));
@@ -334,13 +336,15 @@ fn comment_on_investigation(
                     let sound = Sound {
                         buffer,
                         state: SoundState::Playing,
-                        reference_distance: 5.,
+                        reference_distance: 3.,
                         ..Default::default()
                     };
                     commands.entity(voice).insert(sound);
-                    timer.reset();
                 }
                 timer.tick(time.delta());
+                if timer.finished() {
+                    timer.reset();
+                }
             }
         }
     }
@@ -366,13 +370,15 @@ fn taunt_player(
                     let sound = Sound {
                         buffer,
                         state: SoundState::Playing,
-                        reference_distance: 5.,
+                        reference_distance: 3.,
                         ..Default::default()
                     };
                     commands.entity(voice).insert(sound);
-                    timer.reset();
                 }
                 timer.tick(time.delta());
+                if timer.finished() {
+                    timer.reset();
+                }
             }
         }
     }
@@ -523,6 +529,7 @@ fn investigate(
         match *state {
             ActionState::Init => {}
             ActionState::Requested => {
+                println!("{:?} requests investigation", actor);
                 if let Ok(destination) = investigations.get(*actor) {
                     if let Ok(max_speed) = max_speeds.get(*actor) {
                         commands
@@ -531,9 +538,11 @@ fn investigate(
                             .insert(Speed(**max_speed));
                         *state = ActionState::Executing;
                     } else {
+                        println!("No max speed, failing");
                         *state = ActionState::Failure;
                     }
                 } else {
+                    println!("No destination, failing");
                     *state = ActionState::Failure;
                 }
             }
@@ -551,9 +560,11 @@ fn investigate(
                 }
             }
             ActionState::Cancelled => {
+                println!("{:?} cancels investigation", actor);
                 *state = ActionState::Success;
             }
             _ => {
+                println!("{:?} succeeds or fails investigation", actor);
                 commands.entity(*actor).remove::<InvestigateCoordinates>();
             }
         }
@@ -630,10 +641,10 @@ fn robot_killed(
                         continue;
                     }
                     let distance = robot_coordinates.distance(candidate_coordinates);
-                    if distance <= 5. {
+                    if distance <= 7.5 {
                         if let Ok(name) = names.get(*entity) {
                             commands.entity(candidate_entity).insert(DeathTimer(
-                                Timer::from_seconds(distance / 2., false),
+                                Timer::from_seconds(distance / 2.5, false),
                                 name.clone(),
                             ));
                             let sound = commands
@@ -642,7 +653,7 @@ fn robot_killed(
                                     buffer: buffers.get_handle(sfx.shockwave),
                                     state: SoundState::Playing,
                                     looping: true,
-                                    reference_distance: 5.,
+                                    reference_distance: 3.,
                                     ..Default::default()
                                 })
                                 .insert(Transform::default())
