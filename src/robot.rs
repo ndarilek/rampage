@@ -308,6 +308,38 @@ fn pursue_player(
     }
 }
 
+fn comment_on_investigation(
+    mut commands: Commands,
+    query: Query<&Actor, With<Investigate>>,
+    time: Res<Time>,
+    robots: Query<(&Robot, &Children)>,
+    mut timers: Query<&mut Timer>,
+    buffers: Res<Assets<Buffer>>,
+    sfx: Res<Sfx>,
+) {
+    for Actor(actor) in query.iter() {
+        if let Ok((_, children)) = robots.get(*actor) {
+            let voice = children[0];
+            if let Ok(mut timer) = timers.get_mut(voice) {
+                if timer.percent() == 0. {
+                    let mut comments = sfx.investigate.clone();
+                    comments.shuffle(&mut thread_rng());
+                    let buffer = buffers.get_handle(comments[0]);
+                    let sound = Sound {
+                        buffer,
+                        state: SoundState::Playing,
+                        reference_distance: 5.,
+                        ..Default::default()
+                    };
+                    commands.entity(voice).insert(sound);
+                    timer.reset();
+                }
+                timer.tick(time.delta());
+            }
+        }
+    }
+}
+
 fn taunt_player(
     mut commands: Commands,
     query: Query<&Actor, With<PursuePlayer>>,
@@ -322,13 +354,12 @@ fn taunt_player(
             let voice = children[0];
             if let Ok(mut timer) = timers.get_mut(voice) {
                 if timer.percent() == 0. {
-                    let mut taunts = sfx.taunts.clone();
-                    taunts.shuffle(&mut thread_rng());
-                    let buffer = buffers.get_handle(taunts[0]);
+                    let mut comments = sfx.taunts.clone();
+                    comments.shuffle(&mut thread_rng());
+                    let buffer = buffers.get_handle(comments[0]);
                     let sound = Sound {
                         buffer,
                         state: SoundState::Playing,
-                        gain: 1.5,
                         reference_distance: 5.,
                         ..Default::default()
                     };
@@ -660,6 +691,7 @@ impl Plugin for RobotPlugin {
             .add_system(post_process_robots.system())
             .add_system(sees_player_scorer.system())
             .add_system_to_stage(CoreStage::PreUpdate, pursue_player.system())
+            .add_system(comment_on_investigation.system())
             .add_system(taunt_player.system())
             .add_system_to_stage(CoreStage::PreUpdate, investigate_coordinates.system())
             .add_system(curious_scorer.system())
