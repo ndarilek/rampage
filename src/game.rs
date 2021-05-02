@@ -83,6 +83,7 @@ impl Default for Sfx {
                 "sfx/investigate4.flac".into(),
                 "sfx/investigate5.flac".into(),
                 "sfx/investigate6.flac".into(),
+                "sfx/investigate7.flac".into(),
             ],
             level_exit: "sfx/level_exit.flac".into(),
             life_lost: "sfx/life_lost.flac".into(),
@@ -315,6 +316,7 @@ impl Plugin for GamePlugin {
             .add_plugin(crate::bullet::BulletPlugin)
             .add_plugin(crate::level::LevelPlugin)
             .add_plugin(crate::bonus::BonusPlugin)
+            .add_plugin(crate::ff::ForceFeedbackPlugin)
             .add_event::<Reset>()
             .add_state(AppState::Loading)
             .init_resource::<AssetHandles>()

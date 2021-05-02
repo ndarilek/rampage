@@ -10,7 +10,7 @@ use blackout::{
     core::{Coordinates, Player, PointLike},
     derive_more::{Deref, DerefMut},
     log::Log,
-    map::Map,
+    map::{Areas, Map},
     navigation::{BlocksMotion, MaxSpeed, MotionBlocked, Speed, Velocity},
     pathfinding::Destination,
     rand::prelude::*,
@@ -479,6 +479,7 @@ fn investigate_coordinates(
     bullets: Query<(&Bullet, Entity, &Coordinates)>,
     mut seen_bullets: Local<HashMap<Entity, HashSet<Entity>>>,
     mut robot_kills: EventReader<RobotKilled>,
+    level: Query<(&Map, &MotionBlocked, &Areas)>,
     mut wall_collisions: EventReader<WallCollision>,
 ) {
     for (entity, viewshed, _) in actors.iter() {
@@ -497,21 +498,55 @@ fn investigate_coordinates(
             }
         }
     }
+    let mut investigations: Vec<(i32, i32)> = vec![];
+    let mut rng = thread_rng();
     for RobotKilled(_, _, old_robot_coords, _, _) in robot_kills.iter() {
         for (entity, _, robot_coords) in actors.iter() {
             if robot_coords.distance(old_robot_coords) <= 20. {
-                commands
-                    .entity(entity)
-                    .insert(InvestigateCoordinates(old_robot_coords.i32()));
+                if let Ok((map, motion_blocked, areas)) = level.single() {
+                    if let Some(area) = areas.iter().find(|a| a.contains(old_robot_coords)) {
+                        loop {
+                            let coords = (
+                                rng.gen_range(area.rect.x1..area.rect.x2) as i32,
+                                rng.gen_range(area.rect.y1..area.rect.y2) as i32,
+                            );
+                            if !investigations.contains(&coords)
+                                || !motion_blocked[coords.to_index(map.width())]
+                            {
+                                commands
+                                    .entity(entity)
+                                    .insert(InvestigateCoordinates(coords));
+                                investigations.push(coords);
+                                break;
+                            }
+                        }
+                    }
+                }
             }
         }
     }
     for WallCollision(coords) in wall_collisions.iter() {
         for (entity, _, robot_coords) in actors.iter() {
             if robot_coords.distance(coords) <= 30. {
-                commands
-                    .entity(entity)
-                    .insert(InvestigateCoordinates(coords.i32()));
+                if let Ok((map, motion_blocked, areas)) = level.single() {
+                    if let Some(area) = areas.iter().find(|a| a.contains(coords)) {
+                        loop {
+                            let coords = (
+                                rng.gen_range(area.rect.x1..area.rect.x2) as i32,
+                                rng.gen_range(area.rect.y1..area.rect.y2) as i32,
+                            );
+                            if !investigations.contains(&coords)
+                                || !motion_blocked[coords.to_index(map.width())]
+                            {
+                                commands
+                                    .entity(entity)
+                                    .insert(InvestigateCoordinates(coords));
+                                investigations.push(coords);
+                                break;
+                            }
+                        }
+                    }
+                }
             }
         }
     }
