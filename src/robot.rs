@@ -692,7 +692,7 @@ fn robot_killed(
                     if distance <= 7.5 {
                         if let Ok(name) = names.get(*entity) {
                             commands.entity(candidate_entity).insert(DeathTimer(
-                                Timer::from_seconds(distance / 2.5, false),
+                                Timer::from_seconds(distance / 5., false),
                                 name.clone(),
                             ));
                             let sound = commands
