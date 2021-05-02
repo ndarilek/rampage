@@ -96,7 +96,7 @@ fn bullet(
         }
         let Bullet(owner) = bullet;
         for (Robot(robot_type), entity, robot_coordinates) in robots.iter() {
-            if *owner != entity && coordinates.distance(robot_coordinates) <= 1. {
+            if *owner != entity && coordinates.distance(robot_coordinates) <= 0.75 {
                 if let Ok((_, map)) = level.single() {
                     let index = robot_coordinates.to_index(map.width());
                     robot_killed.send(RobotKilled(
