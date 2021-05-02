@@ -1,4 +1,7 @@
-use std::cmp::{max, min};
+use std::{
+    cmp::{max, min},
+    fmt::Display,
+};
 
 use bevy::{core::FloatOrd, prelude::*, transform::TransformSystem};
 use derive_more::{Deref, DerefMut};
@@ -175,6 +178,13 @@ impl Into<String> for MovementDirection {
     }
 }
 
+impl Display for MovementDirection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str: String = (*self).into();
+        write!(f, "{}", str)
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CardinalDirection {
     North,
@@ -220,6 +230,13 @@ impl Into<String> for CardinalDirection {
             South => "south".to_string(),
             West => "west".to_string(),
         }
+    }
+}
+
+impl Display for CardinalDirection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str: String = (*self).into();
+        write!(f, "{}", str)
     }
 }
 
@@ -366,11 +383,23 @@ impl From<&dyn PointLike> for (i32, i32) {
 pub struct Player;
 
 fn copy_coordinates_to_transform(
+    config: Res<CoreConfig>,
     mut query: Query<(&Coordinates, &mut Transform), Changed<Coordinates>>,
 ) {
     for (coordinates, mut transform) in query.iter_mut() {
-        transform.translation.x = coordinates.0 .0;
-        transform.translation.y = coordinates.0 .1;
+        transform.translation.x = coordinates.0 .0 * config.pixels_per_unit as f32;
+        transform.translation.y = coordinates.0 .1 * config.pixels_per_unit as f32;
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct CoreConfig {
+    pub pixels_per_unit: u8,
+}
+
+impl Default for CoreConfig {
+    fn default() -> Self {
+        Self { pixels_per_unit: 1 }
     }
 }
 
@@ -378,6 +407,9 @@ pub struct CorePlugin;
 
 impl Plugin for CorePlugin {
     fn build(&self, app: &mut AppBuilder) {
+        if !app.world().contains_resource::<CoreConfig>() {
+            app.insert_resource(CoreConfig::default());
+        }
         app.register_type::<Coordinates>()
             .add_system(copy_coordinates_to_transform.system())
             .add_system_to_stage(
@@ -386,5 +418,16 @@ impl Plugin for CorePlugin {
                     .system()
                     .before(TransformSystem::TransformPropagate),
             );
+    }
+}
+
+pub struct CorePlugins;
+
+impl PluginGroup for CorePlugins {
+    fn build(&mut self, group: &mut bevy::app::PluginGroupBuilder) {
+        group
+            .add(crate::bevy_tts::TtsPlugin)
+            .add(crate::bevy_openal::OpenAlPlugin)
+            .add(CorePlugin);
     }
 }

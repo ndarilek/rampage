@@ -175,9 +175,9 @@ fn movement(
     time: Res<Time>,
     mut collision_events: EventWriter<Collision>,
     map: Query<(&Map, &MotionBlocked, &CollisionsMonitored)>,
-    mut entities: Query<(Entity, &Velocity, &mut Coordinates)>,
+    mut entities: Query<(Entity, &Velocity, &mut Coordinates, Option<&BlocksMotion>)>,
 ) {
-    for (entity, velocity, mut coordinates) in entities.iter_mut() {
+    for (entity, velocity, mut coordinates, blocks_motion) in entities.iter_mut() {
         if **velocity != Vec2::ZERO {
             let displacement = **velocity * time.delta_seconds();
             let mut point = **coordinates;
@@ -187,7 +187,10 @@ fn movement(
                 let idx = point.to_index(map.width());
                 if idx < map.base.tiles.len() {
                     let current_entities = &map.entities[idx];
-                    if motion_blocked[idx] && !current_entities.contains(&entity) {
+                    if blocks_motion.is_some()
+                        && motion_blocked[idx]
+                        && !current_entities.contains(&entity)
+                    {
                         collision_events.send(Collision {
                             entity,
                             coordinates: point,
@@ -212,7 +215,47 @@ fn movement(
     }
 }
 
+pub const UPDATE_COLLISION_INDEX_LABEL: &str = "UPDATE_COLLISION_INDEX";
+
+#[derive(Default, Deref, DerefMut)]
+struct PreviousBlocksMotionIndex(HashMap<Entity, usize>);
+
+fn blocks_motion_indexing(
+    mut map: Query<(&Map, &mut MotionBlocked)>,
+    mut prev_index: ResMut<PreviousBlocksMotionIndex>,
+    query: Query<
+        (Entity, &Coordinates, &BlocksMotion),
+        Or<(Changed<Coordinates>, Changed<BlocksMotion>)>,
+    >,
+    motion_blockers: Query<&BlocksMotion>,
+) {
+    for (entity, coordinates, _) in query.iter() {
+        for (map, mut motion_blocked) in map.iter_mut() {
+            let idx = coordinates.to_index(map.width());
+            if let Some(prev_idx) = prev_index.get(&entity) {
+                if *prev_idx == idx {
+                    continue;
+                }
+                let tile = map.base.tiles[*prev_idx];
+                let mut new_motion_blocked = tile.blocks_motion();
+                if !new_motion_blocked {
+                    for e in &map.entities[*prev_idx] {
+                        if motion_blockers.get(*e).is_ok() {
+                            new_motion_blocked = true;
+                            break;
+                        }
+                    }
+                }
+                motion_blocked[*prev_idx] = new_motion_blocked;
+            }
+            motion_blocked[idx] = true;
+            prev_index.insert(entity, idx);
+        }
+    }
+}
+
 fn remove_blocks_motion(
+    mut prev_index: ResMut<PreviousBlocksMotionIndex>,
     mut map: Query<(&Map, &mut MotionBlocked)>,
     removed: RemovedComponents<BlocksMotion>,
     coordinates: Query<&Coordinates>,
@@ -220,6 +263,7 @@ fn remove_blocks_motion(
 ) {
     for entity in removed.iter() {
         if let Ok(coordinates) = coordinates.get_component::<Coordinates>(entity) {
+            prev_index.remove(&entity);
             for (map, mut motion_blocked) in map.iter_mut() {
                 let idx = (**coordinates).to_index(map.width());
                 let tile = map.base.tiles[idx];
@@ -234,7 +278,42 @@ fn remove_blocks_motion(
     }
 }
 
+#[derive(Default, Deref, DerefMut)]
+struct PreviousMonitorsCollisionsIndex(HashMap<Entity, usize>);
+
+fn monitors_collisions_indexing(
+    mut map: Query<(&Map, &mut CollisionsMonitored)>,
+    mut prev_index: ResMut<PreviousMonitorsCollisionsIndex>,
+    query: Query<
+        (Entity, &Coordinates, &MonitorsCollisions),
+        Or<(Changed<Coordinates>, Changed<MonitorsCollisions>)>,
+    >,
+    collision_monitors: Query<&MonitorsCollisions>,
+) {
+    for (entity, coordinates, _) in query.iter() {
+        for (map, mut collisions_monitored) in map.iter_mut() {
+            let idx = coordinates.to_index(map.width());
+            if let Some(prev_idx) = prev_index.get(&entity) {
+                if *prev_idx == idx {
+                    continue;
+                }
+                let mut new_collisions_monitored = false;
+                for e in &map.entities[*prev_idx] {
+                    if collision_monitors.get(*e).is_ok() {
+                        new_collisions_monitored = true;
+                        break;
+                    }
+                }
+                collisions_monitored[*prev_idx] = new_collisions_monitored;
+            }
+            collisions_monitored[idx] = true;
+            prev_index.insert(entity, idx);
+        }
+    }
+}
+
 fn remove_monitors_collisions(
+    mut prev_index: ResMut<PreviousMonitorsCollisionsIndex>,
     mut map: Query<(&Map, &mut CollisionsMonitored)>,
     removed: RemovedComponents<MonitorsCollisions>,
     coordinates: Query<&Coordinates>,
@@ -242,6 +321,7 @@ fn remove_monitors_collisions(
 ) {
     for entity in removed.iter() {
         if let Ok(coordinates) = coordinates.get_component::<Coordinates>(entity) {
+            prev_index.remove(&entity);
             for (map, mut collisions_monitored) in map.iter_mut() {
                 let idx = (**coordinates).to_index(map.width());
                 let mut new_collisions_monitored = false;
@@ -253,47 +333,6 @@ fn remove_monitors_collisions(
                 }
                 collisions_monitored[idx] = new_collisions_monitored;
             }
-        }
-    }
-}
-
-pub const UPDATE_COLLISION_INDEX_LABEL: &str = "UPDATE_COLLISION_INDEX";
-
-// TODO: Split into separate systems, and refactor local resource to global resource that is correctly cleaned up on removal.
-fn collision_indexing(
-    mut map: Query<(&Map, &mut MotionBlocked, &mut CollisionsMonitored)>,
-    mut prev_index: Local<HashMap<Entity, usize>>,
-    query: Query<(
-        Entity,
-        &Coordinates,
-        Option<&BlocksMotion>,
-        Option<&MonitorsCollisions>,
-    )>,
-) {
-    for (entity, coordinates, blocks_motion, monitors_collisions) in query.iter() {
-        for (map, mut motion_blocked, mut collisions_monitored) in map.iter_mut() {
-            let idx = coordinates.to_index(map.width());
-            if let Some(prev_idx) = prev_index.get(&entity) {
-                if *prev_idx == idx {
-                    continue;
-                }
-                let tile = map.base.tiles[*prev_idx];
-                let mut new_motion_blocked = tile.blocks_motion();
-                let mut new_collisions_monitored = false;
-                for e in &map.entities[*prev_idx] {
-                    if let Ok(eq) = query.get(*e) {
-                        let blocks_motion = eq.2.is_some();
-                        let monitors_collisions = eq.3.is_some();
-                        new_motion_blocked = new_motion_blocked || blocks_motion;
-                        new_collisions_monitored = new_collisions_monitored || monitors_collisions;
-                    }
-                }
-                motion_blocked[*prev_idx] = new_motion_blocked;
-                collisions_monitored[*prev_idx] = new_collisions_monitored;
-            }
-            motion_blocked[idx] = motion_blocked[idx] || blocks_motion.is_some();
-            collisions_monitored[idx] = collisions_monitored[idx] || monitors_collisions.is_some();
-            prev_index.insert(entity, idx);
         }
     }
 }
@@ -335,7 +374,7 @@ fn speak_direction(
             let direction: CardinalDirection = yaw.into();
             if old_direction != direction {
                 let direction: String = direction.into();
-                tts.speak(direction, true)?;
+                tts.speak(direction, false)?;
             }
             cache.insert(entity, direction);
         } else {
@@ -388,11 +427,27 @@ where
             .register_type::<RotationSpeed>()
             .register_type::<Sprinting>()
             .add_event::<Collision>()
+            .insert_resource(PreviousBlocksMotionIndex::default())
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                blocks_motion_indexing
+                    .system()
+                    .after(crate::map::UPDATE_ENTITY_INDEX_LABEL)
+                    .label(UPDATE_COLLISION_INDEX_LABEL),
+            )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 remove_blocks_motion
                     .system()
                     .before(UPDATE_COLLISION_INDEX_LABEL),
+            )
+            .insert_resource(PreviousMonitorsCollisionsIndex::default())
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                monitors_collisions_indexing
+                    .system()
+                    .after(crate::map::UPDATE_ENTITY_INDEX_LABEL)
+                    .label(UPDATE_COLLISION_INDEX_LABEL),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
@@ -402,7 +457,7 @@ where
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                collision_indexing
+                monitors_collisions_indexing
                     .system()
                     .after(crate::map::UPDATE_ENTITY_INDEX_LABEL)
                     .label(UPDATE_COLLISION_INDEX_LABEL),

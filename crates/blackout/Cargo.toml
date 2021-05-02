@@ -1,15 +1,10 @@
 [package]
-name = "rampage"
+name = "blackout"
 version = "0.1.0"
 authors = ["Nolan Darilek <nolan@thewordnerd.info>"]
-license = "mit"
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[features]
-trace = ["bevy/trace"]
-trace_chrome = ["bevy/trace_chrome"]
 
 [dependencies.bevy]
 version = "0.5"
@@ -25,8 +20,16 @@ features = [
 ]
 
 [dependencies]
-big-brain = "0.5"
-blackout = { path = "crates/blackout" }
-
-[profile.dev.package."*"]
-opt-level = 3
+backtrace = "0.3"
+bevy_input_actionmap = { path = "../bevy_input_actionmap" }
+bevy_openal = { path = "../bevy_openal" }
+bevy_tts = { path = "../bevy_tts" }
+coord_2d = "0.3"
+crossbeam-channel = "0.5"
+derive_more = "0.99"
+gilrs = "0.8"
+mapgen = "0.4"
+maze_generator = "1"
+pathfinding = "2"
+rand = "0.8"
+shadowcast = "0.8"

@@ -81,8 +81,10 @@ impl ITileType for TileType {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct MapConfig {
     pub autospawn_exits: bool,
+    pub speak_area_descriptions: bool,
     pub start_revealed: bool,
 }
 
@@ -90,6 +92,7 @@ impl Default for MapConfig {
     fn default() -> Self {
         Self {
             autospawn_exits: true,
+            speak_area_descriptions: true,
             start_revealed: false,
         }
     }
@@ -343,6 +346,7 @@ impl Plugin for MapPlugin {
         if !app.world().contains_resource::<MapConfig>() {
             app.insert_resource(MapConfig::default());
         }
+        let config = app.world().get_resource::<MapConfig>().unwrap().clone();
         const SPAWN_EXITS: &str = "SPAWN_EXITS";
         app.register_type::<Exit>()
             .insert_resource(PreviousIndex::default())
@@ -357,8 +361,10 @@ impl Plugin for MapPlugin {
                 CoreStage::PostUpdate,
                 entity_indexing.system().label(UPDATE_ENTITY_INDEX_LABEL),
             )
-            .add_system_to_stage(CoreStage::PostUpdate, area_description.system())
             .add_system_to_stage(CoreStage::Update, add_areas.system())
             .add_system_to_stage(CoreStage::PostUpdate, add_areas.system());
+        if config.speak_area_descriptions {
+            app.add_system_to_stage(CoreStage::PostUpdate, area_description.system());
+        }
     }
 }

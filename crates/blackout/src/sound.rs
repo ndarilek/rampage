@@ -5,11 +5,15 @@ use bevy::{
     prelude::*,
     transform::TransformSystem,
 };
-use bevy_openal::{Buffer, Sound, SoundState};
+use bevy_openal::{Buffer, Context, Sound, SoundState};
 
 use rand::random;
 
-use crate::{core::Player, exploration::ExplorationFocused, visibility::Viewshed};
+use crate::{
+    core::{Coordinates, CoreConfig, Player, PointLike},
+    exploration::ExplorationFocused,
+    visibility::Viewshed,
+};
 
 #[derive(Clone, Debug, Reflect)]
 #[reflect(Component)]
@@ -17,6 +21,9 @@ pub struct Footstep {
     pub sound: HandleId,
     pub step_length: f32,
     pub gain: f32,
+    pub reference_distance: f32,
+    pub max_distance: f32,
+    pub rolloff_factor: f32,
     pub pitch_variation: Option<f32>,
 }
 
@@ -26,6 +33,9 @@ impl Default for Footstep {
             sound: "".into(),
             step_length: 0.8,
             gain: 0.05,
+            reference_distance: 1.,
+            max_distance: f32::MAX,
+            rolloff_factor: 1.,
             pitch_variation: Some(0.15),
         }
     }
@@ -36,6 +46,9 @@ pub struct SoundIcon {
     pub sound: HandleId,
     pub gain: f32,
     pub pitch: f32,
+    pub reference_distance: f32,
+    pub max_distance: f32,
+    pub rolloff_factor: f32,
     pub interval: Option<Timer>,
 }
 
@@ -46,6 +59,9 @@ impl Default for SoundIcon {
             sound: "".into(),
             gain: 0.3,
             pitch: 1.,
+            reference_distance: 1.,
+            max_distance: f32::MAX,
+            rolloff_factor: 1.,
             interval: Some(Timer::from_seconds(seconds, true)),
         };
         if let Some(ref mut interval) = icon.interval {
@@ -73,22 +89,24 @@ pub struct SoundIconBundle {
 fn footstep(
     mut commands: Commands,
     assets: Res<Assets<Buffer>>,
-    mut last_step_distance: Local<HashMap<Entity, (f32, Vec3)>>,
-    footsteps: Query<
-        (Entity, &Footstep, Option<&Children>, &GlobalTransform),
-        Changed<GlobalTransform>,
-    >,
+    mut last_step_distance: Local<HashMap<Entity, (f32, Coordinates)>>,
+    footsteps: Query<(Entity, &Footstep, &Parent, Option<&Children>), Changed<GlobalTransform>>,
+    coordinates_storage: Query<&Coordinates>,
     mut sounds: Query<&mut Sound>,
 ) {
-    for (entity, footstep, children, transform) in footsteps.iter() {
+    for (entity, footstep, parent, children) in footsteps.iter() {
+        let coordinates = coordinates_storage.get(**parent).unwrap();
         if let Some(children) = children {
             if let Some(last) = last_step_distance.get(&entity) {
-                let distance = last.0 + (transform.translation - last.1).length();
+                let distance = last.0 + (last.1.distance(coordinates));
                 if distance >= footstep.step_length {
-                    last_step_distance.insert(entity, (0., transform.translation));
+                    last_step_distance.insert(entity, (0., *coordinates));
                     let sound = children[0];
                     if let Ok(mut sound) = sounds.get_mut(sound) {
                         sound.gain = footstep.gain;
+                        sound.reference_distance = footstep.reference_distance;
+                        sound.max_distance = footstep.max_distance;
+                        sound.rolloff_factor = footstep.rolloff_factor;
                         if let Some(pitch_variation) = footstep.pitch_variation {
                             let mut pitch = 1. - pitch_variation / 2.;
                             pitch += random::<f32>() * pitch_variation;
@@ -96,11 +114,11 @@ fn footstep(
                         }
                         sound.play();
                     }
-                } else if last.1 != transform.translation {
-                    last_step_distance.insert(entity, (distance, transform.translation));
+                } else if last.1 != *coordinates {
+                    last_step_distance.insert(entity, (distance, *coordinates));
                 }
             } else {
-                last_step_distance.insert(entity, (0., transform.translation));
+                last_step_distance.insert(entity, (0., *coordinates));
             }
         } else {
             let buffer = assets.get_handle(footstep.sound);
@@ -129,21 +147,25 @@ fn sound_icon(
     mut icons: Query<(
         Entity,
         &mut SoundIcon,
-        &Transform,
-        Option<&GlobalTransform>,
+        Option<&Coordinates>,
+        Option<&Parent>,
         Option<&Children>,
     )>,
+    coordinates_storage: Query<&Coordinates>,
     mut sounds: Query<&mut Sound>,
 ) {
     for (_, viewer) in viewers.iter() {
-        for (entity, mut icon, transform, global_transform, children) in icons.iter_mut() {
-            let translation = global_transform
-                .map(|v| v.translation)
-                .unwrap_or_else(|| transform.translation);
-            let (x, y) = (translation.x, translation.y);
-            let x = x as i32;
-            let y = y as i32;
-            if viewer.visible.contains(&(x, y)) {
+        for (entity, mut icon, coordinates, parent, children) in icons.iter_mut() {
+            let coords = if let Some(coordinates) = coordinates {
+                *coordinates
+            } else if let Some(parent) = parent {
+                *coordinates_storage
+                    .get(**parent)
+                    .expect("If `SoundIcon` is a child, its parent must have `Coordinates`")
+            } else {
+                panic!("No `Coordinates` on `SoundIcon` or parent");
+            };
+            if viewer.is_visible(&coords) {
                 let buffer = asset_server.get_handle(icon.sound);
                 if asset_server.get_load_state(&buffer) == LoadState::Loaded {
                     let looping = icon.interval.is_none();
@@ -192,6 +214,9 @@ fn sound_icon(
                                 }
                                 sound.gain = icon.gain;
                                 sound.pitch = icon.pitch;
+                                sound.reference_distance = icon.reference_distance;
+                                sound.max_distance = icon.max_distance;
+                                sound.rolloff_factor = icon.rolloff_factor;
                             }
                         }
                     }
@@ -222,18 +247,38 @@ fn sound_icon_exploration_focus_removed(
     }
 }
 
+fn scale_sounds(config: Res<CoreConfig>, mut sounds: Query<&mut Sound>) {
+    let pixels_per_unit = config.pixels_per_unit as f32;
+    for mut sound in sounds.iter_mut() {
+        sound.reference_distance *= pixels_per_unit;
+        if sound.max_distance != f32::MAX {
+            sound.max_distance *= pixels_per_unit;
+        }
+    }
+}
 #[derive(Clone, Copy, Debug, Default)]
 pub struct SoundPlugin;
 
 impl Plugin for SoundPlugin {
     fn build(&self, app: &mut AppBuilder) {
         const SOUND_ICON_AND_EXPLORATION_STAGE: &str = "sound_icon_and_exploration";
+        let config = *app.world().get_resource::<CoreConfig>().unwrap();
+        if let Some(context) = app.world().get_resource::<Context>() {
+            context
+                .set_meters_per_unit(1. / config.pixels_per_unit as f32)
+                .unwrap();
+        }
         app.register_type::<Footstep>()
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 footstep.system().after(TransformSystem::TransformPropagate),
             )
-            .add_system(sound_icon.system())
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                sound_icon
+                    .system()
+                    .after(TransformSystem::TransformPropagate),
+            )
             .add_stage_after(
                 CoreStage::PostUpdate,
                 SOUND_ICON_AND_EXPLORATION_STAGE,
@@ -246,6 +291,7 @@ impl Plugin for SoundPlugin {
             .add_system_to_stage(
                 SOUND_ICON_AND_EXPLORATION_STAGE,
                 sound_icon_exploration_focus_removed.system(),
-            );
+            )
+            .add_system(scale_sounds.system());
     }
 }

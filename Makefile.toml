@@ -15,14 +15,26 @@ args = ["build",  "@@split(CARGO_RELEASE_ARGS, )"]
 command = "cargo"
 args = ["run", "--features", "trace,trace_chrome", "@@split(CARGO_RELEASE_ARGS, )"]
 
-[tasks.release]
-dependencies = ["build", "release-pre", "release-post", "release-package"]
-
-[tasks.release-pre]
+[tasks.release-config]
 script_runner = "@duckscript"
 script = '''
 dist_artifact = set ${CARGO_MAKE_PROJECT_NAME}-${CARGO_MAKE_RUST_TARGET_OS}-${CARGO_MAKE_RUST_TARGET_ARCH}
 dist_dir = set dist/${dist_artifact}
+'''
+
+[tasks.release-clean]
+dependencies = ["release-config"]
+script_runner = "@duckscript"
+script = '''
+rm -r ${dist_dir}
+'''
+
+[tasks.release]
+dependencies = ["build", "release-config", "release-pre", "release-post", "release-package"]
+
+[tasks.release-pre]
+script_runner = "@duckscript"
+script = '''
 mkdir ${dist_dir}
 cp assets ${dist_dir}
 cp alsoft.ini ${dist_dir}/alsoft.ini
