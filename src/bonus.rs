@@ -29,12 +29,17 @@ fn bonus(
 ) {
     for _ in events.iter() {
         if let Ok((_, map_entity)) = level.single() {
-            if let Ok(mut robot_kill_times) = bonus_times.single_mut() {
-                robot_kill_times.push(Instant::now());
+            if let Ok(mut bonus_times) = bonus_times.single_mut() {
+                bonus_times.push(Instant::now());
                 let buffer = buffers.get_handle(sfx.bonus);
-                let recent_kills = (robot_kill_times.len() % 7) - 1;
+                let recent_bonuses = bonus_times.len() % 7;
                 let notes = vec![0., 2., 4., 5., 7., 9., 11.];
-                let pitch = 1. + notes[recent_kills] / 12.;
+                let bonus_index = if recent_bonuses == 0 {
+                    0
+                } else {
+                    recent_bonuses - 1
+                };
+                let pitch = 1. + notes[bonus_index] / 12.;
                 let sound_id = commands
                     .spawn()
                     .insert(Sound {
