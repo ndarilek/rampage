@@ -9,6 +9,7 @@ mod ff;
 mod game;
 mod level;
 mod player;
+mod render;
 mod robot;
 
 fn main() {

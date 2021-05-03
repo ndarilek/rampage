@@ -316,6 +316,7 @@ impl Plugin for GamePlugin {
             .add_plugin(blackout::pathfinding::PathfindingPlugin)
             .add_plugin(blackout::sound::SoundPlugin)
             .add_plugin(blackout::visibility::VisibilityPlugin)
+            .add_plugin(crate::render::RenderPlugin)
             .add_plugin(crate::player::PlayerPlugin)
             .add_plugin(crate::robot::RobotPlugin)
             .add_plugin(crate::bullet::BulletPlugin)
