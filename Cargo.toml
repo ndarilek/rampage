@@ -19,6 +19,7 @@ features = [
     "bevy_wgpu",
     "bevy_winit",
     "render",
+    "png",
     "x11",
     "wayland",
     "serialize",

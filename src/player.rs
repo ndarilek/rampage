@@ -115,6 +115,7 @@ impl Default for PlayerBundle {
 fn spawn_player(mut commands: Commands, sfx: Res<Sfx>) {
     commands
         .spawn()
+        .insert_bundle(OrthographicCameraBundle::new_2d())
         .insert_bundle(PlayerBundle::default())
         .with_children(|parent| {
             parent.spawn().insert_bundle(FootstepBundle {

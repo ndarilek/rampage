@@ -30,6 +30,7 @@ pub enum AppState {
 #[derive(Clone, Debug, Default)]
 struct AssetHandles {
     sfx: Vec<HandleUntyped>,
+    tiles: Handle<Texture>,
 }
 
 #[derive(Clone, Debug)]
@@ -130,6 +131,7 @@ fn setup(
     mut global_effects: ResMut<GlobalEffects>,
 ) -> Result<(), Box<dyn Error>> {
     handles.sfx = asset_server.load_folder("sfx")?;
+    handles.tiles = asset_server.load("tiles.png");
     let mut slot = context.new_aux_effect_slot()?;
     let mut reverb = context.new_effect::<efx::EaxReverbEffect>()?;
     reverb.set_preset(&efx::REVERB_PRESET_FACTORY_ALCOVE)?;
@@ -222,11 +224,14 @@ fn load(
     asset_server: Res<AssetServer>,
     handles: ResMut<AssetHandles>,
     buffers: Res<Buffers>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
 ) -> Result<(), Box<dyn Error>> {
     let buffers_created = buffers.0.keys().len();
     let sfx_loaded = asset_server.get_group_load_state(handles.sfx.iter().map(|handle| handle.id))
         == LoadState::Loaded;
-    if sfx_loaded && buffers_created == handles.sfx.len() {
+    let tiles_loaded = asset_server.get_load_state(&handles.tiles) == LoadState::Loaded;
+    if sfx_loaded && buffers_created == handles.sfx.len() && tiles_loaded {
+        materials.add(ColorMaterial::texture(handles.tiles.clone()));
         state.overwrite_replace(AppState::InGame)?;
     }
     Ok(())
