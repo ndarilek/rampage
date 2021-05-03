@@ -157,6 +157,9 @@ fn negotiate_path(
                 let start_index = start.to_index(map.width());
                 let start = Vec2::new(start.0, start.1);
                 let next = path[1];
+                if motion_blocked[next.to_index(map.width())] {
+                    // TODO: Should probably handle.
+                }
                 let next = Vec2::new(next.0 as f32, next.1 as f32);
                 if rotation_speed.is_some() {
                     let start = start.floor();
