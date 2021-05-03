@@ -283,7 +283,6 @@ fn pursue_player(
     for (Actor(actor), mut state) in query.iter_mut() {
         match *state {
             ActionState::Requested => {
-                println!("{:?} pursues player", actor);
                 if let Ok(children) = children.get(*actor) {
                     let voice_entity = children[0];
                     if let Ok(mut timer) = timers.get_mut(voice_entity) {
@@ -303,7 +302,6 @@ fn pursue_player(
                 }
             }
             ActionState::Cancelled => {
-                println!("{:?} cancels pursuit", actor);
                 if let Ok(mut log) = log.single_mut() {
                     if let Ok(name) = names.get(*actor) {
                         log.push(format!("{} evaded!", **name));
@@ -482,24 +480,48 @@ fn investigate_coordinates(
     level: Query<(&Map, &MotionBlocked, &Areas)>,
     mut wall_collisions: EventReader<WallCollision>,
 ) {
-    for (entity, viewshed, _) in actors.iter() {
-        if !seen_bullets.contains_key(&entity) {
-            seen_bullets.insert(entity, HashSet::new());
+    let mut investigations: Vec<(i32, i32)> = vec![];
+    let mut rng = thread_rng();
+    for (actor_entity, viewshed, _) in actors.iter() {
+        if !seen_bullets.contains_key(&actor_entity) {
+            seen_bullets.insert(actor_entity, HashSet::new());
         }
         for (_, bullet_entity, bullet_coordinates) in bullets.iter() {
-            if let Some(seen_bullets) = seen_bullets.get_mut(&entity) {
+            if let Some(seen_bullets) = seen_bullets.get_mut(&actor_entity) {
                 if !seen_bullets.contains(&bullet_entity) && viewshed.is_visible(bullet_coordinates)
                 {
-                    commands
-                        .entity(entity)
-                        .insert(InvestigateCoordinates(bullet_coordinates.i32()));
+                    if let Ok((map, motion_blocked, areas)) = level.single() {
+                        if motion_blocked[bullet_coordinates.to_index(map.width())] {
+                            if let Some(area) =
+                                areas.iter().find(|a| a.contains(bullet_coordinates))
+                            {
+                                loop {
+                                    let coords = (
+                                        rng.gen_range(area.rect.x1..area.rect.x2) as i32,
+                                        rng.gen_range(area.rect.y1..area.rect.y2) as i32,
+                                    );
+                                    if !investigations.contains(&coords)
+                                        || !motion_blocked[coords.to_index(map.width())]
+                                    {
+                                        commands
+                                            .entity(actor_entity)
+                                            .insert(InvestigateCoordinates(coords));
+                                        investigations.push(coords);
+                                        break;
+                                    }
+                                }
+                            }
+                        } else {
+                            commands
+                                .entity(actor_entity)
+                                .insert(InvestigateCoordinates(bullet_coordinates.i32()));
+                        }
+                    }
                     seen_bullets.insert(bullet_entity);
                 }
             }
         }
     }
-    let mut investigations: Vec<(i32, i32)> = vec![];
-    let mut rng = thread_rng();
     for RobotKilled(_, _, old_robot_coords, _, _) in robot_kills.iter() {
         for (entity, _, robot_coords) in actors.iter() {
             if robot_coords.distance(old_robot_coords) <= 20. {
@@ -571,13 +593,13 @@ fn investigate(
     investigations: Query<&InvestigateCoordinates>,
     max_speeds: Query<&MaxSpeed>,
     destinations: Query<&Destination>,
+    viewsheds: Query<&Viewshed>,
     coordinates: Query<&Coordinates>,
 ) {
     for (Actor(actor), mut state) in query.iter_mut() {
         match *state {
             ActionState::Init => {}
             ActionState::Requested => {
-                println!("{:?} requests investigation", actor);
                 if let Ok(destination) = investigations.get(*actor) {
                     if let Ok(max_speed) = max_speeds.get(*actor) {
                         commands
@@ -586,11 +608,9 @@ fn investigate(
                             .insert(Speed(**max_speed));
                         *state = ActionState::Executing;
                     } else {
-                        println!("No max speed, failing");
                         *state = ActionState::Failure;
                     }
                 } else {
-                    println!("No destination, failing");
                     *state = ActionState::Failure;
                 }
             }
@@ -598,7 +618,11 @@ fn investigate(
                 if let Ok(destination) = destinations.get(*actor) {
                     if let Ok(coordinates) = coordinates.get(*actor) {
                         if destination.distance(coordinates) <= 3. {
-                            *state = ActionState::Success;
+                            if let Ok(viewshed) = viewsheds.get(*actor) {
+                                if viewshed.is_visible(coordinates) {
+                                    *state = ActionState::Success;
+                                }
+                            }
                         }
                     } else {
                         *state = ActionState::Failure;
@@ -608,11 +632,9 @@ fn investigate(
                 }
             }
             ActionState::Cancelled => {
-                println!("{:?} cancels investigation", actor);
                 *state = ActionState::Success;
             }
             _ => {
-                println!("{:?} succeeds or fails investigation", actor);
                 commands.entity(*actor).remove::<InvestigateCoordinates>();
             }
         }
