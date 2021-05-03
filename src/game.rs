@@ -28,9 +28,9 @@ pub enum AppState {
 
 // This asset-handling/loading code needs some cleanup.
 #[derive(Clone, Debug, Default)]
-struct AssetHandles {
+pub struct AssetHandles {
     sfx: Vec<HandleUntyped>,
-    tiles: Handle<Texture>,
+    pub tiles: Handle<Texture>,
 }
 
 #[derive(Clone, Debug)]

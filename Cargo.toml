@@ -26,6 +26,7 @@ features = [
 ]
 
 [dependencies]
+bevy_ecs_tilemap = "0.2"
 big-brain = "0.5"
 blackout = { path = "crates/blackout" }
 
