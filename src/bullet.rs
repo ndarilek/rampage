@@ -14,7 +14,7 @@ use blackout::{
 
 use crate::{
     bonus::AwardBonus,
-    game::{AppState, Sfx},
+    game::{AppState, Sfx, Sprites},
     player::LifeLost,
     robot::{CauseOfDeath, Robot, RobotKilled},
 };
@@ -81,17 +81,28 @@ impl<'a, 'b> BulletCommands<'a, 'b> for EntityCommands<'a, 'b> {
 fn post_process_bullet(
     mut commands: Commands,
     bullets: Query<Entity, Added<Bullet>>,
+    sprites: Res<Sprites>,
+    asset_server: Res<AssetServer>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
     buffers: Res<Assets<Buffer>>,
     sfx: Res<Sfx>,
 ) {
     for entity in bullets.iter() {
-        commands.entity(entity).insert(Sound {
-            buffer: buffers.get_handle(sfx.bullet),
-            state: SoundState::Playing,
-            looping: true,
-            bypass_global_effects: true,
-            ..Default::default()
-        });
+        let handle = asset_server.get_handle(sprites.bullet);
+        let material = materials.add(handle.into());
+        commands
+            .entity(entity)
+            .insert_bundle(SpriteBundle {
+                material,
+                ..Default::default()
+            })
+            .insert(Sound {
+                buffer: buffers.get_handle(sfx.bullet),
+                state: SoundState::Playing,
+                looping: true,
+                bypass_global_effects: true,
+                ..Default::default()
+            });
     }
 }
 
