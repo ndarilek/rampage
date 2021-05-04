@@ -20,6 +20,8 @@ script_runner = "@duckscript"
 script = '''
 dist_artifact = set ${CARGO_MAKE_PROJECT_NAME}-${CARGO_MAKE_RUST_TARGET_OS}-${CARGO_MAKE_RUST_TARGET_ARCH}
 dist_dir = set dist/${dist_artifact}
+set_env dist_dir ${dist_dir}
+set_env dist_artifact ${dist_artifact}
 '''
 
 [tasks.release-clean]
@@ -38,8 +40,6 @@ script = '''
 mkdir ${dist_dir}
 cp assets ${dist_dir}
 cp alsoft.ini ${dist_dir}/alsoft.ini
-set_env dist_dir ${dist_dir}
-set_env dist_artifact ${dist_artifact}
 '''
 
 [tasks.release-post]
