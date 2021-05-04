@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use bevy::prelude::*;
+use bevy::{ecs::system::EntityCommands, prelude::*};
 use blackout::{
     bevy_openal::{Buffer, Sound, SoundState},
     core::{Coordinates, Player, PointLike},
@@ -32,13 +32,67 @@ pub struct ShotRange(pub u32);
 pub struct ShotSpeed(pub u32);
 
 #[derive(Bundle, Default)]
-pub struct BulletBundle {
+struct BulletBundle {
     pub coordinates: Coordinates,
     pub range: ShotRange,
     pub velocity: Velocity,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
-    pub sound: Sound,
+}
+
+pub trait BulletCommands<'a, 'b> {
+    fn insert_bullet(
+        &mut self,
+        owner: &Entity,
+        coordinates: &Coordinates,
+        transform: Option<&Transform>,
+        shot_speed: Option<&ShotSpeed>,
+        velocity: Option<&Velocity>,
+        shot_range: &ShotRange,
+    ) -> &mut EntityCommands<'a, 'b>;
+}
+
+impl<'a, 'b> BulletCommands<'a, 'b> for EntityCommands<'a, 'b> {
+    fn insert_bullet(
+        &mut self,
+        owner: &Entity,
+        coordinates: &Coordinates,
+        transform: Option<&Transform>,
+        shot_speed: Option<&ShotSpeed>,
+        velocity: Option<&Velocity>,
+        shot_range: &ShotRange,
+    ) -> &mut Self {
+        let bullet_velocity = if let (Some(transform), Some(shot_speed)) = (transform, shot_speed) {
+            let mut velocity = Vec3::new(**shot_speed as f32, 0., 0.);
+            velocity = transform.compute_matrix().transform_vector3(velocity);
+            Velocity(Vec2::new(velocity.x, velocity.y))
+        } else {
+            velocity.unwrap().clone()
+        };
+        self.insert(Bullet(*owner)).insert_bundle(BulletBundle {
+            coordinates: *coordinates,
+            range: *shot_range,
+            velocity: bullet_velocity,
+            ..Default::default()
+        })
+    }
+}
+
+fn post_process_bullet(
+    mut commands: Commands,
+    bullets: Query<Entity, Added<Bullet>>,
+    buffers: Res<Assets<Buffer>>,
+    sfx: Res<Sfx>,
+) {
+    for entity in bullets.iter() {
+        commands.entity(entity).insert(Sound {
+            buffer: buffers.get_handle(sfx.bullet),
+            state: SoundState::Playing,
+            looping: true,
+            bypass_global_effects: true,
+            ..Default::default()
+        });
+    }
 }
 
 fn bullet(
@@ -132,6 +186,7 @@ pub struct BulletPlugin;
 
 impl Plugin for BulletPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_system_set(SystemSet::on_update(AppState::InGame).with_system(bullet.system()));
+        app.add_system(post_process_bullet.system())
+            .add_system_set(SystemSet::on_update(AppState::InGame).with_system(bullet.system()));
     }
 }

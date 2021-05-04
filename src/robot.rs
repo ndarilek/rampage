@@ -20,7 +20,7 @@ use blackout::{
 
 use crate::{
     bonus::AwardBonus,
-    bullet::{Bullet, BulletBundle, ShotRange, ShotSpeed, ShotTimer},
+    bullet::{Bullet, BulletCommands, ShotRange, ShotSpeed, ShotTimer},
     game::{AppState, Sfx, Sprites},
     level::WallCollision,
 };
@@ -210,7 +210,7 @@ impl<'a, 'b> RobotCommands<'a, 'b> for EntityCommands<'a, 'b> {
     }
 }
 
-fn post_process_robots(
+fn post_process_robot(
     mut commands: Commands,
     sfx: Res<Sfx>,
     sprites: Res<Sprites>,
@@ -457,20 +457,14 @@ fn shoot_player(
                         let velocity = Velocity(velocity);
                         let bullet = commands
                             .spawn()
-                            .insert(Bullet(robot_entity))
-                            .insert_bundle(BulletBundle {
-                                coordinates: *robot_coords,
-                                range: *range,
-                                velocity,
-                                sound: Sound {
-                                    buffer: buffers.get_handle(sfx.bullet),
-                                    state: SoundState::Playing,
-                                    gain: 0.4,
-                                    looping: true,
-                                    ..Default::default()
-                                },
-                                ..Default::default()
-                            })
+                            .insert_bullet(
+                                &robot_entity,
+                                robot_coords,
+                                None,
+                                None,
+                                Some(&velocity),
+                                range,
+                            )
                             .id();
                         commands
                             .entity(level_entity)
@@ -788,7 +782,7 @@ impl Plugin for RobotPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_event::<RobotKilled>()
             .add_plugin(BigBrainPlugin)
-            .add_system(post_process_robots.system())
+            .add_system(post_process_robot.system())
             .add_system(sees_player_scorer.system())
             .add_system_to_stage(CoreStage::PreUpdate, pursue_player.system())
             .add_system_to_stage(CoreStage::PostUpdate, comment_on_investigation.system())

@@ -18,7 +18,7 @@ use blackout::{
 
 use crate::{
     bonus::BonusTimes,
-    bullet::{Bullet, BulletBundle, ShotRange, ShotSpeed, ShotTimer},
+    bullet::{Bullet, BulletCommands, ShotRange, ShotSpeed, ShotTimer},
     game::{
         AppState, Reset, Sfx, Sprites, SHOOT, SNAP_LEFT, SNAP_RIGHT, SPEAK_COORDINATES,
         SPEAK_DIRECTION, SPEAK_HEALTH, SPEAK_LEVEL, SPEAK_ROBOT_COUNT, SPEAK_SCORE,
@@ -260,25 +260,16 @@ fn shoot(
                         ..Default::default()
                     })
                     .id();
-                let mut velocity = Vec3::new(**shot_speed as f32, 0., 0.);
-                velocity = transform.compute_matrix().transform_vector3(velocity);
-                let velocity = Velocity(Vec2::new(velocity.x, velocity.y));
                 let bullet = commands
                     .spawn()
-                    .insert(Bullet(player_entity))
-                    .insert_bundle(BulletBundle {
-                        coordinates: *coordinates,
-                        range: *shot_range,
-                        velocity,
-                        sound: Sound {
-                            buffer: buffers.get_handle(sfx.bullet),
-                            state: SoundState::Playing,
-                            looping: true,
-                            bypass_global_effects: true,
-                            ..Default::default()
-                        },
-                        ..Default::default()
-                    })
+                    .insert_bullet(
+                        &player_entity,
+                        &coordinates,
+                        Some(&transform),
+                        Some(&shot_speed),
+                        None,
+                        shot_range,
+                    )
                     .id();
                 commands
                     .entity(level_entity)
