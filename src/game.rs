@@ -29,8 +29,16 @@ pub enum AppState {
 // This asset-handling/loading code needs some cleanup.
 #[derive(Clone, Debug, Default)]
 pub struct AssetHandles {
+    gfx: Vec<HandleUntyped>,
     sfx: Vec<HandleUntyped>,
-    pub tiles: Handle<Texture>,
+}
+
+#[derive(Clone, Debug)]
+pub struct Sprites {
+    pub bullet: HandleId,
+    pub dumbass: HandleId,
+    pub jackass: HandleId,
+    pub player: HandleId,
 }
 
 #[derive(Clone, Debug)]
@@ -130,8 +138,8 @@ fn setup(
     context: ResMut<Context>,
     mut global_effects: ResMut<GlobalEffects>,
 ) -> Result<(), Box<dyn Error>> {
+    handles.gfx = asset_server.load_folder("gfx")?;
     handles.sfx = asset_server.load_folder("sfx")?;
-    handles.tiles = asset_server.load("tiles.png");
     let mut slot = context.new_aux_effect_slot()?;
     let mut reverb = context.new_effect::<efx::EaxReverbEffect>()?;
     reverb.set_preset(&efx::REVERB_PRESET_FACTORY_ALCOVE)?;
@@ -227,11 +235,13 @@ fn load(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) -> Result<(), Box<dyn Error>> {
     let buffers_created = buffers.0.keys().len();
+    let gfx_loaded = asset_server.get_group_load_state(handles.gfx.iter().map(|handle| handle.id))
+        == LoadState::Loaded;
     let sfx_loaded = asset_server.get_group_load_state(handles.sfx.iter().map(|handle| handle.id))
         == LoadState::Loaded;
-    let tiles_loaded = asset_server.get_load_state(&handles.tiles) == LoadState::Loaded;
-    if sfx_loaded && buffers_created == handles.sfx.len() && tiles_loaded {
-        materials.add(ColorMaterial::texture(handles.tiles.clone()));
+    if gfx_loaded && sfx_loaded && buffers_created == handles.sfx.len() {
+        let tiles = asset_server.get_handle("sfx/tiles.png");
+        materials.add(ColorMaterial::texture(tiles));
         state.overwrite_replace(AppState::InGame)?;
     }
     Ok(())
@@ -316,7 +326,7 @@ impl Plugin for GamePlugin {
             .add_plugin(blackout::pathfinding::PathfindingPlugin)
             .add_plugin(blackout::sound::SoundPlugin)
             .add_plugin(blackout::visibility::VisibilityPlugin)
-            .add_plugin(crate::render::RenderPlugin)
+            .add_plugin(crate::tilemap::TileMapPlugin)
             .add_plugin(crate::player::PlayerPlugin)
             .add_plugin(crate::robot::RobotPlugin)
             .add_plugin(crate::bullet::BulletPlugin)

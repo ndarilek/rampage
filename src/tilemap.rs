@@ -2,17 +2,16 @@ use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 use blackout::{map::Map as BlackoutMap, mapgen::TileType};
 
-use crate::game::AssetHandles;
-
 fn spawn_tilemap(
     mut commands: Commands,
-    handles: Res<AssetHandles>,
+    asset_server: Res<AssetServer>,
     materials: Res<Assets<ColorMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     map: Query<(Entity, &BlackoutMap), Added<BlackoutMap>>,
 ) {
     for (entity, map) in map.iter() {
-        let material_handle = materials.get_handle(handles.tiles.clone());
+        let tiles: Handle<Texture> = asset_server.get_handle("gfx/tiles.png");
+        let material_handle = materials.get_handle(tiles);
         let mut tilemap = Map::new(
             Vec2::new(1., 1.).into(),
             Vec2::new(map.width() as f32, map.height() as f32).into(),
@@ -55,9 +54,9 @@ fn spawn_tilemap(
     }
 }
 
-pub struct RenderPlugin;
+pub struct TileMapPlugin;
 
-impl Plugin for RenderPlugin {
+impl Plugin for TileMapPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_plugin(TileMapPlugin)
             .add_system(spawn_tilemap.system());
