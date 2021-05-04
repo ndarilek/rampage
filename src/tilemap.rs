@@ -58,7 +58,7 @@ pub struct TileMapPlugin;
 
 impl Plugin for TileMapPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_plugin(TileMapPlugin)
+        app.add_plugin(bevy_ecs_tilemap::prelude::TileMapPlugin)
             .add_system(spawn_tilemap.system());
     }
 }

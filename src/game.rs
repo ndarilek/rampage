@@ -35,12 +35,24 @@ pub struct AssetHandles {
 
 #[derive(Clone, Debug)]
 pub struct Sprites {
+    pub badass: HandleId,
     pub bullet: HandleId,
     pub dumbass: HandleId,
     pub jackass: HandleId,
     pub player: HandleId,
 }
 
+impl Default for Sprites {
+    fn default() -> Self {
+        Self {
+            badass: "gfx/red.png".into(),
+            bullet: "gfx/silver.png".into(),
+            dumbass: "gfx/yellow.png".into(),
+            jackass: "gfx/fuchsia.png".into(),
+            player: "gfx/blue.png".into(),
+        }
+    }
+}
 #[derive(Clone, Debug)]
 pub struct Sfx {
     pub ambiences: Vec<HandleId>,
@@ -337,6 +349,7 @@ impl Plugin for GamePlugin {
             .add_state(AppState::Loading)
             .init_resource::<AssetHandles>()
             .init_resource::<Sfx>()
+            .init_resource::<Sprites>()
             .add_startup_system(setup.system().chain(error_handler.system()))
             .add_system_set(
                 SystemSet::on_update(AppState::Loading)

@@ -20,8 +20,8 @@ use crate::{
     bonus::BonusTimes,
     bullet::{Bullet, BulletBundle, ShotRange, ShotSpeed, ShotTimer},
     game::{
-        AppState, Reset, Sfx, SHOOT, SNAP_LEFT, SNAP_RIGHT, SPEAK_COORDINATES, SPEAK_DIRECTION,
-        SPEAK_HEALTH, SPEAK_LEVEL, SPEAK_ROBOT_COUNT, SPEAK_SCORE,
+        AppState, Reset, Sfx, Sprites, SHOOT, SNAP_LEFT, SNAP_RIGHT, SPEAK_COORDINATES,
+        SPEAK_DIRECTION, SPEAK_HEALTH, SPEAK_LEVEL, SPEAK_ROBOT_COUNT, SPEAK_SCORE,
     },
     level::Level,
     robot::{Robot, RobotKilled, RobotType},
@@ -112,10 +112,21 @@ impl Default for PlayerBundle {
     }
 }
 
-fn spawn_player(mut commands: Commands, sfx: Res<Sfx>) {
+fn spawn_player(
+    mut commands: Commands,
+    sprites: Res<Sprites>,
+    sfx: Res<Sfx>,
+    asset_server: Res<AssetServer>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    let sprite_handle = asset_server.get_handle(sprites.player);
     commands
         .spawn()
         .insert_bundle(OrthographicCameraBundle::new_2d())
+        .insert_bundle(SpriteBundle {
+            material: materials.add(sprite_handle.into()),
+            ..Default::default()
+        })
         .insert_bundle(PlayerBundle::default())
         .with_children(|parent| {
             parent.spawn().insert_bundle(FootstepBundle {

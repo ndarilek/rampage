@@ -21,7 +21,7 @@ use blackout::{
 use crate::{
     bonus::AwardBonus,
     bullet::{Bullet, BulletBundle, ShotRange, ShotSpeed, ShotTimer},
-    game::{AppState, Sfx},
+    game::{AppState, Sfx, Sprites},
     level::WallCollision,
 };
 
@@ -213,9 +213,21 @@ impl<'a, 'b> RobotCommands<'a, 'b> for EntityCommands<'a, 'b> {
 fn post_process_robots(
     mut commands: Commands,
     sfx: Res<Sfx>,
+    sprites: Res<Sprites>,
+    asset_server: Res<AssetServer>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
     robots: Query<(&Robot, Entity), Added<Robot>>,
 ) {
     for (Robot(robot_type), entity) in robots.iter() {
+        let sprite_handle = asset_server.get_handle(match robot_type {
+            RobotType::Dumbass => sprites.dumbass,
+            RobotType::Jackass => sprites.jackass,
+            RobotType::Badass => sprites.badass,
+        });
+        commands.entity(entity).insert_bundle(SpriteBundle {
+            material: materials.add(sprite_handle.into()),
+            ..Default::default()
+        });
         let footstep = commands
             .spawn()
             .insert_bundle(FootstepBundle {
