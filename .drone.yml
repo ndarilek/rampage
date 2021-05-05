@@ -48,6 +48,7 @@ steps:
 
   - name: check
     commands:
+      - rustup default stable
       - cargo check --all
 
 ---
