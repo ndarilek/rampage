@@ -15,7 +15,7 @@ local Pipeline(platform) = {
       image: "rust",
       commands: [
         "apt-get update -qq",
-        "apt-get install -qqy libspeechd-dev pkg-config libx11-dev libasound2-dev libudev-dev zip",
+        "apt-get install -qqy libclang-dev libspeechd-dev pkg-config libx11-dev libasound2-dev libudev-dev zip",
         "cargo check --all",
       ]
     },
