@@ -1,7 +1,7 @@
 ---
 kind: pipeline
 type: docker
-name: build linux
+name: linux
 
 clone:
   disable: true
@@ -13,9 +13,16 @@ steps:
   - apk add --no-cache git-lfs
   - git clone --recursive $DRONE_REPO_LINK .
   - git checkout $DRONE_COMMIT
+
 - name: check
   image: rust
   commands:
   - apt-get update -qq
   -apt-get install -qqy llvm-dev libclang-dev clang libspeechd-dev pkg-config libx11-dev libasound2-dev libudev-dev zip
   - cargo check --all
+
+- name: release
+  image: rust
+  commands:
+  - cargo install -f cargo-make
+  - cargo make -p release build
