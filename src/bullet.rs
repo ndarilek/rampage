@@ -67,7 +67,7 @@ impl<'a, 'b> BulletCommands<'a, 'b> for EntityCommands<'a, 'b> {
             velocity = transform.compute_matrix().transform_vector3(velocity);
             Velocity(Vec2::new(velocity.x, velocity.y))
         } else {
-            velocity.unwrap().clone()
+            *velocity.unwrap()
         };
         self.insert(Bullet(*owner)).insert_bundle(BulletBundle {
             coordinates: *coordinates,
