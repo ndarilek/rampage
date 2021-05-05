@@ -10,7 +10,7 @@ local Pipeline(platform) = {
       image: "alpine/git",
       commands: [
         "apk add --no-cache git-lfs",
-        "git clone --recursive $DRONE_REPO_LINK",
+        "git clone --recursive $DRONE_REPO_LINK .",
         "git checkout $DRONE_COMMIT"
       ]
     },
