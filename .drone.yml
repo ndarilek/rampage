@@ -4,7 +4,8 @@ type: docker
 name: check linux
 
 trigger:
-  branch: master
+  branch:
+    - master
 
 clone:
   disable: true
@@ -30,10 +31,11 @@ type: exec
 name: check macos
 
 platform:
-  os: macos
+  os: darwin
 
 trigger:
-  branch: master
+  branch:
+    - master
 
 clone:
   disable: true
@@ -54,7 +56,8 @@ type: docker
 name: release linux
 
 trigger:
-  branch: release
+  branch:
+    - release
 
 clone:
   disable: true
