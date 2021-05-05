@@ -3,6 +3,13 @@ local Pipeline(platform) = {
   name: "build",
   steps: [
     {
+      name: "fetch submodules",
+      image: "alpine/git",
+      commands: [
+        "git submodule update --recursive --remote"
+      ]
+    },
+    {
       name: "test",
       image: "rust",
       commands: [
