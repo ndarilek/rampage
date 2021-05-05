@@ -26,6 +26,30 @@ steps:
 
 ---
 kind: pipeline
+type: exec
+name: check macos
+
+platform:
+  os: macos
+
+trigger:
+  branch: master
+
+clone:
+  disable: true
+
+steps:
+  - name: clone
+    commands:
+      - git clone --recursive $DRONE_REPO_LINK .
+      - git checkout $DRONE_COMMIT
+
+  - name: check
+    commands:
+      - cargo check --all
+
+---
+kind: pipeline
 type: docker
 name: release linux
 
