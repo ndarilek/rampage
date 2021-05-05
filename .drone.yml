@@ -1,11 +1,7 @@
 ---
 kind: pipeline
+name: linux
 type: docker
-name: check linux
-
-trigger:
-  branch:
-    - main
 
 clone:
   disable: true
@@ -19,59 +15,19 @@ steps:
       - git checkout $DRONE_COMMIT
 
   - name: check
+    when:
+      branch:
+        - main
     image: rust
     commands:
       - apt-get update -qq
       - apt-get install -qqy llvm-dev libclang-dev clang libspeechd-dev pkg-config libx11-dev libasound2-dev libudev-dev zip
       - cargo check --all
 
----
-kind: pipeline
-type: exec
-name: check macos
-
-platform:
-  os: darwin
-
-trigger:
-  branch:
-    - main
-
-clone:
-  disable: true
-
-steps:
-  - name: clone
-    commands:
-      - git clone --recursive $DRONE_REPO_LINK .
-      - git checkout $DRONE_COMMIT
-
-  - name: check
-    commands:
-      - rustup default stable
-      - cargo check --all
-
----
-kind: pipeline
-type: docker
-name: release linux
-
-trigger:
-  branch:
-    - release
-
-clone:
-  disable: true
-
-steps:
-  - name: clone
-    image: alpine/git
-    commands:
-      - apk add --no-cache git-lfs
-      - git clone --recursive $DRONE_REPO_LINK .
-      - git checkout $DRONE_COMMIT
-
   - name: release
+    when:
+      branch:
+        - release
     image: rust
     commands:
       - apt-get update -qq
@@ -81,15 +37,11 @@ steps:
 
 ---
 kind: pipeline
+name: macos
 type: exec
-name: release macos
 
 platform:
   os: darwin
-
-trigger:
-  branch:
-    - release
 
 clone:
   disable: true
@@ -100,7 +52,21 @@ steps:
       - git clone --recursive $DRONE_REPO_LINK .
       - git checkout $DRONE_COMMIT
 
+  - name: default stable
+    commands:
+      - rustup default stable
+
+  - name: check
+    when:
+      branch:
+        - main
+    commands:
+      - cargo check --all
+
   - name: release
+    when:
+      branch:
+        - release
     commands:
       - cargo install -f cargo-make
       - cargo make -p release release
