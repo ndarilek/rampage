@@ -78,3 +78,29 @@ steps:
       - apt-get install -qqy llvm-dev libclang-dev clang libspeechd-dev pkg-config libx11-dev libasound2-dev libudev-dev zip
       - cargo install -f cargo-make
       - cargo make -p release release
+
+---
+kind: pipeline
+type: exec
+name: release macos
+
+platform:
+  os: darwin
+
+trigger:
+  branch:
+    - release
+
+clone:
+  disable: true
+
+steps:
+  - name: clone
+    commands:
+      - git clone --recursive $DRONE_REPO_LINK .
+      - git checkout $DRONE_COMMIT
+
+  - name: release
+    commands:
+      - cargo install -f cargo-make
+      - cargo make -p release release
