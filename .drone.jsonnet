@@ -1,13 +1,17 @@
 local Pipeline(platform) = {
   kind: "pipeline",
   name: "build",
+  clone: {
+    disable: true
+  },
   steps: [
     {
-      name: "fetch submodules",
+      name: "clone",
       image: "alpine/git",
       commands: [
-        "git submodule init",
-        "git submodule update --recursive --remote"
+        "apk add --no-cache git-lfs",
+        "git clone --recursive $DRONE_REPO_LINK",
+        "git checkout $DRONE_COMMIT"
       ]
     },
     {
