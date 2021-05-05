@@ -16,7 +16,7 @@ local Pipeline(platform) = {
       commands: [
         "apt-get update -qq",
         "apt-get install -qqy libspeechd-dev pkg-config libx11-dev libasound2-dev libudev-dev zip",
-        "cargo check --verbose --all",
+        "cargo check --all",
       ]
     },
     {
