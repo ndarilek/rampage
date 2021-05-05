@@ -1,7 +1,10 @@
 ---
 kind: pipeline
 type: docker
-name: linux
+name: check linux
+
+trigger:
+  branch: master
 
 clone:
   disable: true
@@ -21,8 +24,29 @@ steps:
       - apt-get install -qqy llvm-dev libclang-dev clang libspeechd-dev pkg-config libx11-dev libasound2-dev libudev-dev zip
       - cargo check --all
 
+---
+kind: pipeline
+type: docker
+name: release linux
+
+trigger:
+  branch: release
+
+clone:
+  disable: true
+
+steps:
+  - name: clone
+    image: alpine/git
+    commands:
+      - apk add --no-cache git-lfs
+      - git clone --recursive $DRONE_REPO_LINK .
+      - git checkout $DRONE_COMMIT
+
   - name: release
     image: rust
     commands:
+      - apt-get update -qq
+      - apt-get install -qqy llvm-dev libclang-dev clang libspeechd-dev pkg-config libx11-dev libasound2-dev libudev-dev zip
       - cargo install -f cargo-make
-      - cargo make -p release build
+      - cargo make -p release release
