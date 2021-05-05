@@ -6,6 +6,7 @@ local Pipeline(platform) = {
       name: "fetch submodules",
       image: "alpine/git",
       commands: [
+        "git submodule init",
         "git submodule update --recursive --remote"
       ]
     },
