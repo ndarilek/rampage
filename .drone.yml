@@ -90,6 +90,10 @@ steps:
       - git clone --recursive $env:DRONE_REPO_LINK .
       - git checkout $env:DRONE_COMMIT
 
+  - name: default stable
+    commands:
+      - rustup default stable
+
   - name: check
     when:
       branch:
