@@ -70,3 +70,31 @@ steps:
     commands:
       - cargo install -f cargo-make
       - cargo make -p release release
+
+---
+kind: pipeline
+name: publish
+type: docker
+
+trigger:
+  branch:
+    - release
+
+depends_on:
+  - linux
+  - macos
+
+steps:
+  - name: publish
+    image: rust
+    environment:
+      BUTLER_API_KEY:
+        from_secret: itch_api_key
+    commands:
+      - apt-get update -qq
+      - apt-get install -qqy curl unzip
+      - curl -L -o butler.zip https://broth.itch.ovh/butler/linux-amd64/LATEST/archive/default
+      - unzip butler.zip
+      - chmod +x butler
+      - mv butler /usr/local/bin
+      - cargo install -f cargo-make
