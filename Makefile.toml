@@ -90,7 +90,11 @@ windows_alias = "release-package-windows"
 script_runner = "@duckscript"
 script = '''
 cd dist/
-exec zip -r9 ${dist_artifact}.zip ${dist_artifact}
+mkdir appdir/usr/bin
+cp ${dist_artifact}/assets appdir/usr/bin/assets
+cp ${dist_artifact}/${CARGO_MAKE_PROJECT_NAME} appdir/usr/bin/${CARGO_MAKE_PROJECT_NAME}
+set_env OUTPUT ${dist_artifact}.AppImage
+exec ../linuxdeploy --appdir appdir/ -d ../${CARGO_MAKE_PROJECT_NAME}.desktop -e appdir/usr/bin/${CARGO_MAKE_PROJECT_NAME} -l/usr/lib/x86_64-linux-gnu/libopenal.so.1 -i ../icons/48x48.png -o appimage
 '''
 
 [tasks.release-package-mac]
