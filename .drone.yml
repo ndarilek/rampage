@@ -75,6 +75,38 @@ steps:
 
 ---
 kind: pipeline
+name: windows
+type: exec
+
+platform:
+  os: windows
+
+clone:
+  disable: true
+
+steps:
+  - name: clone
+    commands:
+      - git clone --recursive $DRONE_REPO_LINK .
+      - git checkout $DRONE_COMMIT
+
+  - name: check
+    when:
+      branch:
+        - main
+    commands:
+      - cargo check --all
+
+  - name: release
+    when:
+      branch:
+        - release
+    commands:
+      - cargo install -f cargo-make
+      - cargo make -p release release
+
+---
+kind: pipeline
 name: publish
 type: docker
 
@@ -85,6 +117,7 @@ trigger:
 depends_on:
   - linux
   - macos
+  - windows
 
 steps:
   - name: publish
