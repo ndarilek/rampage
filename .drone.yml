@@ -87,8 +87,8 @@ clone:
 steps:
   - name: clone
     commands:
-      - git clone --recursive $DRONE_REPO_LINK .
-      - git checkout $DRONE_COMMIT
+      - git clone --recursive $env:DRONE_REPO_LINK .
+      - git checkout $env:DRONE_COMMIT
 
   - name: check
     when:
