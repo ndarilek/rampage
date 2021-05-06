@@ -116,8 +116,18 @@ cd dist/
 exec zip -r9 ${dist_artifact}.zip ${dist_artifact}
 '''
 
+[tasks.publish]
+dependencies = ["release-clean", "release"]
+linux_alias = "publish-linux"
+windows_alias = "publish-windows"
+
+[tasks.publish-linux]
+script_runner = "@duckscript"
+script = '''
+exec butler push dist/${dist_artifact}.AppImage ${ITCH_USERNAME}/${CARGO_MAKE_PROJECT_NAME}:${CARGO_MAKE_RUST_TARGET_OS}-${CARGO_MAKE_RUST_TARGET_ARCH}
+'''
+
 [tasks.publish-windows]
-dependencies = ["release"]
 script_runner = "@duckscript"
 script = '''
 exec butler push dist/${dist_artifact}.zip ${ITCH_USERNAME}/${CARGO_MAKE_PROJECT_NAME}:${CARGO_MAKE_RUST_TARGET_OS}-${CARGO_MAKE_RUST_TARGET_ARCH}
