@@ -34,6 +34,8 @@ steps:
       - apt-get install -qqy llvm-dev libclang-dev clang libspeechd-dev pkg-config libx11-dev libasound2-dev libudev-dev zip
       - cargo install -f cargo-make
       - cargo make -p release release
+      - curl https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage -Lo linuxdeploy
+      - chmod +x linuxdeploy
 
 ---
 kind: pipeline
