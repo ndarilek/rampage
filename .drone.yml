@@ -11,6 +11,7 @@ steps:
     image: alpine/git
     commands:
       - apk add --no-cache git-lfs
+      - git config --global advice.detachedHead false
       - git clone --recursive $DRONE_REPO_LINK .
       - git checkout $DRONE_COMMIT
 
@@ -51,6 +52,7 @@ clone:
 steps:
   - name: clone
     commands:
+      - git config --global advice.detachedHead false
       - git clone --recursive $DRONE_REPO_LINK .
       - git checkout $DRONE_COMMIT
 
@@ -87,6 +89,7 @@ clone:
 steps:
   - name: clone
     commands:
+      - git config --global advice.detachedHead false
       - git clone --recursive $env:DRONE_REPO_LINK .
       - git checkout $env:DRONE_COMMIT
 
