@@ -29,6 +29,7 @@ features = [
 bevy_ecs_tilemap = "0.2"
 big-brain = "0.5"
 blackout = { path = "crates/blackout" }
+gilrs = "0.8"
 
 [profile.dev.package."*"]
 opt-level = 3
